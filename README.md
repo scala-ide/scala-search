@@ -1,29 +1,28 @@
-scala-ide-plugin.g8
-===================
+Next Scala Search
+=================
 
-Giger8 template for Eclipse plugins based on the Scala IDE.
+The next Scala Search Engine for Scala IDE. Currently there's not much
+to see here.
 
-This template produces 5 Eclipse plugins:
+Building
+--------
 
-* the plugin itself
-* the `plugin.tests` fragment
-* an Eclipse feature
-* an Eclipse source feature
-* an Eclipse update-site
+The build is configured using maven so you build by invoking the following:
 
-The projects can readily be imported inside Eclipse. Additionally, you have maven `pom` files
-based on Tycho, enabling command line builds.
+    mvn -P scala-ide-master-scala-trunk clean package
+    
+Running it
+----------
 
-## Note:
+The easiest way to work on the plugin is to import the projects into Eclipse and run it using 
+the [Equinox Weaving Launcher](https://github.com/milessabin/equinox-weaving-launcher) plugin.
+To install the Equinox Weaving Launcher, use the following Eclipse update site:
 
-By default, the maven build is performed against the latest stable versions (Scala IDE 2.0 and Scala 2.9).
-The available profiles are:
+[http://www.chuusai.com/eclipse/equinox-weaving-launcher/](http://www.chuusai.com/eclipse/equinox-weaving-launcher/)
 
-* `scala-ide-2.0-scala-2.9` (default)
-* `scala-ide-2.0.x-scala-2.9`
-* `scala-ide-master-scala-2.9`
-* `scala-ide-master-scala-trunk`
+This adds the run configuration `Eclipse Application with Equinox Weaving`.
 
-Run maven like this:
+Links
+-----
 
-    mvn -P scala-ide-master-scala-trunk clean install
+- [Jenkins Job](https://jenkins.scala-ide.org:8496/jenkins/job/scala-search-nightly-2.1-2.10/)
