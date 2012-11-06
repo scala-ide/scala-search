@@ -6,11 +6,11 @@
   provider-name="example.org">
 
   <description url="http://example.org/">
-     The sources of a template of a Scala IDE plug-in.
+     The sources of the next Scala Search.
   </description>
 
    <copyright url="http://example.org/downloads/">
-      Copyright (C) 2012 ______TO_UPDATE_______. 
+      Copyright (C) 2012 Typesafe. 
 All rights reserved.
    </copyright>
 
@@ -203,7 +203,7 @@ All rights reserved.
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright [yyyy] [name of copyright owner]
+   Copyright 2012 Typesafe
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

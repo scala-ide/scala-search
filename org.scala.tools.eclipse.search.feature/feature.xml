@@ -7,11 +7,11 @@
       plugin="org.scala.tools.eclipse.search">
 
    <description url="http://example.org">
-      Template of a Scala IDE plug-in
+      Next Scala Search
    </description>
 
    <copyright url="http://example.org/downloads/">
-     Copyright (C) 2012  _______TO_UPDATE_______. 
+     Copyright (C) 2012  Typesafe. 
 All rights reserved.
    </copyright>
 
@@ -204,7 +204,7 @@ All rights reserved.
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright [yyyy] [name of copyright owner]
+   Copyright 2012 Typesafe
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
