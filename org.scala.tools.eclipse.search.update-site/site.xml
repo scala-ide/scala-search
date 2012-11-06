@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature url="features/org.scala.tools.eclipse.search.feature_0.0.0.jar" id="org.scala.tools.eclipse.search.feature" version="0.0.0">
+      <category name="org.scala.tools.eclipse.search"/>
+   </feature>
+   <feature url="features/org.scala.tools.eclipse.search.source.feature_0.0.0.jar" id="org.scala.tools.eclipse.search.source.feature" version="0.0.0">
+      <category name="org.scala.tools.eclipse.search-source"/>
+   </feature>
+   <category-def name="org.scala.tools.eclipse.search" label="Scala Search"/>
+   <category-def name="org.scala.tools.eclipse.search-source" label="Scala Search Source"/> -->
+</site>
