@@ -1,28 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?eclipse version="3.2"?>
 <plugin>
-   <extension
-         point="org.eclipse.ui.actionSets">
-      <actionSet
-            id="example.actionSet"
-            label="Sample Action Set"
-            visible="true">
-         <menu
-               id="sampleMenu"
-               label="Sample &amp;Menu">
-            <separator
-                  name="sampleGroup">
-            </separator>
-         </menu>
-         <action
-               class="org.scala.tools.eclipse.search.SampleAction"
-               icon="icons/sample.gif"
-               id="org.scala.tools.eclipse.search.sampleAction"
-               label="&amp;Sample Action"
-               menubarPath="sampleMenu/sampleGroup"
-               toolbarPath="sampleGroup"
-               tooltip="Hello, Scala world">
-         </action>
-      </actionSet>
-   </extension>
+  <!-- Search pages extension point -->
+  <extension point="org.eclipse.search.searchPages">
+    <!-- When we're ready we need to set showScopeSection to true. -->
+    <page
+         id="org.scala.tools.eclipse.search.ui.ScalaSearchPage"
+         label="Scala Search"
+         sizeHint="250,160"
+         tabPosition="1"
+         extensions="scala:90"
+         enabled="true"
+         showScopeSection="false"
+         class="org.scala.tools.eclipse.search.ui.ScalaSearchPage">
+    </page>
+  </extension>
 </plugin>
