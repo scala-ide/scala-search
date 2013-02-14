@@ -23,7 +23,7 @@ import org.eclipse.swt.events.ModifyEvent
  * This is the page that is rendered in the Eclipse search dialog. It is 
  * Hooked into Eclipse through the SearchPage extension point.
  */
-class ScalaSearchPage extends DialogPage with ISearchPage with HasLogger {
+class SearchPage extends DialogPage with ISearchPage with HasLogger {
 
   /**
    * This is invoked when the user presses the search button.
