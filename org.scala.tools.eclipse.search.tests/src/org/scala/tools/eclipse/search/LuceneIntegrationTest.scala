@@ -1,7 +1,6 @@
 package org.scala.tools.eclipse.search
 
 import java.io.File
-
 import org.apache.lucene.analysis.core.SimpleAnalyzer
 import org.apache.lucene.document.Document
 import org.apache.lucene.document.Field
@@ -12,13 +11,7 @@ import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.util.Version
 import org.junit.Assert._
 import org.junit.Test
-
-object LuceneIntegrationTest {
-  val INDEX_DIR = new File(path("target","lucene-test-index"))
-
-  private def path(strings: String*) =
-    strings.mkString(File.separator)
-}
+import scala.tools.eclipse.testsetup.TestProjectSetup
 
 class LuceneIntegrationTest {
 
@@ -38,4 +31,9 @@ class LuceneIntegrationTest {
 
     assertEquals("Should be able to store and read a document", doc.get("test"), d.get("test"))
   }
+}
+
+object LuceneIntegrationTest extends TestUtil {
+  val INDEX_DIR = new File(mkPath("target","lucene-integration-test-index"))
+
 }
