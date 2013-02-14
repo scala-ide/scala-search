@@ -1,8 +1,7 @@
 package org.scala.tools.eclipse.search.indexing
 
-import org.eclipse.core.resources.IFile
-import scala.tools.eclipse.javaelements.ScalaSourceFile
 import scala.tools.eclipse.ScalaPresentationCompiler
+import scala.tools.eclipse.javaelements.ScalaSourceFile
 import scala.tools.eclipse.logging.HasLogger
 
 /**

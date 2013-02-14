@@ -57,8 +57,7 @@ class OccurrenceCollectorTest {
   @Test def invocationAsArgument() {
     doWithOccurrencesInUnit("org","example","InvocationAsArgument.scala") { occurrences => 
       val m = occurrenceFor("methodTwo", occurrences)
-      assertEquals(
-          "Should be 3 occurrences of methodTwo %s".format(m), 3, m.size)
+      assertEquals("Should be 3 occurrences of methodTwo %s".format(m), 3, m.size)
     }
   }
 
