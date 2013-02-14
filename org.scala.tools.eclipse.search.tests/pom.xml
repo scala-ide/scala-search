@@ -16,10 +16,11 @@
         <artifactId>tycho-surefire-plugin</artifactId>
         <configuration>
           <testSuite>${project.artifactId}</testSuite>
-          <testClass>org.scala.tools.eclipse.search.SomeInterestingCodeTest</testClass>
+          <testClass>org.scala.tools.eclipse.search.TestsSuite</testClass>
         </configuration>
       </plugin>
     </plugins>
   </build>
+
 </project>
 
