@@ -30,4 +30,6 @@ Import-Package:
  scala.tools.eclipse;apply-aspects:=false,
  scala.tools.eclipse.contribution.weaving.jdt.ui.javaeditor.formatter;apply-aspects:=false
 Bundle-RequiredExecutionEnvironment: J2SE-1.5
-Bundle-ClassPath: .
+Bundle-ClassPath: .,
+ target/lib/lucene-core-4.1.0.jar,
+ target/lib/lucene-analyzers-common-4.1.0.jar
