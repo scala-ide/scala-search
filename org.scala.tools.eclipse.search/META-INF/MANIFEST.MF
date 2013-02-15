@@ -4,6 +4,7 @@ Bundle-Name: Scala Search
 Bundle-SymbolicName: org.scala.tools.eclipse.search;singleton:=true
 Bundle-Version: 0.1.0.qualifier
 Bundle-Vendor: Scala IDE
+Bundle-Activator: org.scala.tools.eclipse.search.SearchPlugin
 Bundle-ActivationPolicy: lazy
 Bundle-Localization: plugin
 Require-Bundle: 
