@@ -11,6 +11,8 @@ import org.apache.lucene.util.Version
 import org.eclipse.core.resources.IFile
 import org.apache.lucene.search.TermQuery
 import org.apache.lucene.index.Term
+import org.apache.lucene.index.DirectoryReader
+import org.apache.lucene.search.IndexSearcher
 
 /**
  * A Lucene based index of all occurrences of Scala entities recorded
@@ -18,6 +20,8 @@ import org.apache.lucene.index.Term
  * for more information about what is stored.
  */
 class LuceneIndex(indexLocation: File) extends HasLogger {
+
+  // TODO: Should also close dir at some point.
 
   private val dir      = FSDirectory.open(indexLocation)
   private val analyzer = new SimpleAnalyzer(Version.LUCENE_41)
@@ -39,8 +43,23 @@ class LuceneIndex(indexLocation: File) extends HasLogger {
    */
   def removeOccurrencesFromFile(file: File): Unit = {
     doWithWriter { writer =>
-      val query = new TermQuery(new Term(LuceneFields.FILE, file.getAbsolutePath()))
+      val query = new TermQuery(TermQueries.fileTerm(file))
       writer.deleteDocuments(query)
+    }
+  }
+
+  /**
+   * Returns all occurrences recorded in the index for the given file. Mostly useful
+   * for testing purposes.
+   */
+  def occurrencesInFile(file: File): Seq[Occurrence] = {
+    withSearcher { searcher =>
+      val query = new TermQuery(TermQueries.fileTerm(file))
+      val hits = searcher.search(query, 10000).scoreDocs // TODO: Assumes at most 10k occurrences in a document.
+      hits.map { hit => 
+        val doc = searcher.doc(hit.doc)
+        Occurrence.fromDocument(doc)
+      }
     }
   }
 
@@ -51,6 +70,20 @@ class LuceneIndex(indexLocation: File) extends HasLogger {
     val writer = new IndexWriter(dir, config)
     f(writer)
     writer.close()
+  }
+
+  private def withSearcher[A](f: IndexSearcher => A): A = {
+    val reader = DirectoryReader.open(dir)
+    val searcher = new IndexSearcher(reader)
+    val r = f(searcher)
+    reader.close()
+    r
+  }
+
+  private object TermQueries {
+    def fileTerm(file: File) = {
+      new Term(LuceneFields.FILE, file.getAbsolutePath())
+    }
   }
 
 }

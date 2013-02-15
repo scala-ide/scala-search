@@ -31,6 +31,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
   override def stop(context: BundleContext) {
     logger.debug("Stopping the plugin")
     SearchPlugin.stop()
+    super.stop(context)
   }
 
 }

@@ -8,7 +8,8 @@ import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
 import org.scala.tools.eclipse.search.indexing.Occurrence
 import java.io.File
 
-object OccurrenceCollectorTest extends TestProjectSetup("aProject", bundleName= "org.scala.tools.eclipse.search.tests") {
+object OccurrenceCollectorTest extends TestProjectSetup("aProject", bundleName= "org.scala.tools.eclipse.search.tests")
+                                  with TestUtil {
 
   def occurrenceFor(word: String, occurrences: Seq[Occurrence]) = {
     occurrences.filter( _.word == word )
@@ -22,12 +23,11 @@ object OccurrenceCollectorTest extends TestProjectSetup("aProject", bundleName= 
       occs => f(occs))
   }
 
-  private def mkPath(xs: String*): String = {
-    xs.mkString(File.separator)
-  }
-
 }
 
+/**
+ * This tests the occurrence collector exclusively, this doesn't depend on any for of index.
+ */
 class OccurrenceCollectorTest {
 
   import OccurrenceCollectorTest._
