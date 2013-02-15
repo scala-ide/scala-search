@@ -9,7 +9,7 @@ Building
 
 The build is configured using maven so you build by invoking the following:
 
-    mvn -P scala-ide-master-scala-trunk clean package
+    mvn clean package
     
 Running it
 ----------
@@ -25,4 +25,4 @@ This adds the run configuration `Eclipse Application with Equinox Weaving`.
 Links
 -----
 
-- [Jenkins Job](https://jenkins.scala-ide.org:8496/jenkins/job/scala-search-nightly-2.1-2.10/)
+- [Jenkins Job](https://jenkins.scala-ide.org:8496/jenkins/view/Plugins%20%28Scala%20IDE%29/job/scala-search-nightly-master-2.10/?)
