@@ -9,14 +9,12 @@ Install it
 
 For the moment only nightlies are available.
 
-Requirements
-++++++++++++
+### Requirements ###
 
 * [Install Eclipse 3.7 (Indigo)](http://www.eclipse.org/downloads/packages/release/indigo/sr2).
 * [Install the Scala IDE nightly for Scala 2.10.x](http://scala-ide.org/download/nightly.html#for_scala_210x).
 
-Update site
-+++++++++++
+### Update site ###
 
 http://scala-ide.dreamhosters.com/nightly-update-scala-search-scalaide-master-210/site/ 
 
