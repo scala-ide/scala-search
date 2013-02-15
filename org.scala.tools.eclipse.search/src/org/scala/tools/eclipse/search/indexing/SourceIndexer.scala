@@ -14,9 +14,10 @@ import org.eclipse.core.resources.IFile
 class SourceIndexer(index: LuceneIndex) extends HasLogger {
 
   /**
-   * Indexes all souces in the current workspace.
+   * Indexes all souces in the current workspace. This removes all previous occurrences
+   * recorded in that workspace.
    */
-  def indexWorkspace(root: IWorkspaceRoot) = {
+  def indexWorkspace(root: IWorkspaceRoot): Unit = {
     root.getProjects().foreach { p =>
       if (p.isOpen()) {
         ScalaPlugin.plugin.asScalaProject(p).map( proj => {
@@ -29,17 +30,18 @@ class SourceIndexer(index: LuceneIndex) extends HasLogger {
   }
 
   /**
-   * Indexes all sources in `project`
+   * Indexes all sources in `project`. This removes all previous occurrences recorded in
+   * that project.
    */
-  def indexProject(proj: ScalaProject) = {
+  def indexProject(proj: ScalaProject): Unit = {
     timed("Indexing project %s".format(proj)) {
       proj.allSourceFiles.foreach { indexIFile }
     }
   }
 
   /**
-   * Indexes the parse tree of an IFile if the IFile is pointing
-   * to a Scala source file. 
+   * Indexes the parse tree of an IFile if the IFile is pointing to a Scala source file.
+   * This removes all previous occurrences recorded in that file.
    */
   def indexIFile(file: IFile): Unit = {
     val path = file.getFullPath().toOSString()
@@ -48,7 +50,12 @@ class SourceIndexer(index: LuceneIndex) extends HasLogger {
     }
   }
 
+  /**
+   * Indexes the occurrences in a Scala file. This removes all previous occurrences
+   * recorded in that file.
+   */
   def indexScalaFile(sf: ScalaSourceFile): Unit = {
+    index.removeOccurrencesFromFile(sf.file.file)
     OccurrenceCollector.findOccurrences(sf).fold(
       fail => logger.debug(fail),
       occurrences => index.addOccurrences(occurrences))

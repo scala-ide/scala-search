@@ -11,6 +11,16 @@ case object Reference extends OccurrenceKind
 sealed abstract class EntityKind
 case object Method extends EntityKind
 
+object LuceneFields {
+
+  val WORD = "word"
+  val FILE = "file"
+  val OFFSET = "offset"
+  val OCCURRENCE_KIND = "occurrenceKind"
+  val ENTITY_KIND = "entityKind"
+
+}
+
 /**
  * Represents an occurrence of a word that we're interested in when
  * indexing the parse trees.
@@ -33,12 +43,13 @@ case class Occurrence(
    * occurrence.
    */
   def toDocument: Document = {
+    import LuceneFields._
     val doc = new Document
-    doc.add(new Field("word", word, Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field("file", file.getPath().makeAbsolute().toOSString(), Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field("offset", offset.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field("occurrenceKind", occurrenceKind.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field("entityKind", entity.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new Field(WORD, word, Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new Field(FILE, file.getPath().makeAbsolute().toOSString(), Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new Field(OFFSET, offset.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new Field(OCCURRENCE_KIND, occurrenceKind.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new Field(ENTITY_KIND, entity.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
     doc
   }
 

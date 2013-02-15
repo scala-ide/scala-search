@@ -14,10 +14,10 @@
          showScopeSection="false"
          class="org.scala.tools.eclipse.search.ui.ScalaSearchPage">
     </page>
+  </extension>
 
-    <!-- Force Eclipse to start the plugin when it starts. -->
-    <extension point="org.eclipse.ui.startup">
-      <startup/>
-    </extension>
+  <!-- Force Eclipse to start the plugin when it starts. -->
+  <extension point="org.eclipse.ui.startup">
+    <startup class="org.scala.tools.eclipse.search.Startup"></startup>
   </extension>
 </plugin>
