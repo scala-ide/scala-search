@@ -2,9 +2,8 @@ package org.example
 
 class ScalaClass {
   def method: String = {
-    val s1 = methodOne
-    val s2 = methodTwo(s1)
-    methodThree(s1)(s2)
+    val s2 = methodTwo(methodOne)
+    methodThree(s1)(methodTwo(s2))
   }
 }
 
