@@ -1,8 +1,10 @@
 Next Scala Search
 =================
 
-The next Scala Search Engine for Scala IDE. Currently there's not much
-to see here.
+The next Scala Search Engine for Scala IDE.
+
+Please, use the [scala-ide-user](http://groups.google.com/group/scala-ide-user/) Mailing List for questions and 
+comments. Or, if you are interested in contributing, drop us a email on [scala-ide-dev](http://groups.google.com/group/scala-ide-dev/).
 
 Install it
 ----------
