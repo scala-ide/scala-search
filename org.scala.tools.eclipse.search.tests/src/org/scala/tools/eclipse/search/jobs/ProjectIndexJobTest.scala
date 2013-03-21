@@ -1,12 +1,13 @@
 package org.scala.tools.eclipse.search.jobs
 
 import java.io.IOException
+import scala.tools.eclipse.testsetup.SDTTestUtils
+import scala.tools.eclipse.testsetup.SDTTestUtils.waitUntil
 import scala.tools.eclipse.testsetup.TestProjectSetup
 import scala.util.Failure
 import scala.util.Success
 import org.apache.lucene.index.CorruptIndexException
 import org.eclipse.core.resources.IFile
-import org.eclipse.core.resources.IProject
 import org.eclipse.core.runtime.IPath
 import org.junit.Test
 import org.mockito.Matchers
@@ -25,6 +26,9 @@ import ProjectIndexJobTest.mocks
 import org.scala.tools.eclipse.search.TestUtil
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import scala.tools.eclipse.testsetup.SDTTestUtils
+import org.eclipse.core.runtime.Path
+import org.scala.tools.eclipse.search.JobChangeAdapter
+import scala.tools.eclipse.ScalaProject
 
 class ProjectIndexJobTest {
 
@@ -34,21 +38,21 @@ class ProjectIndexJobTest {
   @Test def whenStartingItShouldTriggerIndexing() {
     // When the job is started it should start indexing the existing
     // files in the project.
+
     val latch = new CountDownLatch(1)
 
-    val index = mock(classOf[Index])
-    val indexer = mock(classOf[SourceIndexer])
-    when(indexer.indexProject(project)).thenReturn(Success())
+    val config = mockedSuccessfullIndexerConfigReIndexing
+    when(config.indexProject(project)).thenReturn(Success())
 
-    val job = ProjectIndexJob(indexer, index, project, INTERVAL)
+    val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
     job.schedule()
-    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(indexer, atLeast(1)).indexProject(project)
+    verify(config, atLeast(1)).indexProject(project)
   }
 
   @Test def changingFilesShouldTriggerIndexing() {
@@ -56,22 +60,21 @@ class ProjectIndexJobTest {
     val latch = new CountDownLatch(2)
     val arg = mocks.args.fileNamed("Change.scala")
 
-    val index = mock(classOf[Index])
-    val indexer = mockedSuccessfullIndexer(index)
-    when(indexer.indexIFile(Matchers.argThat(arg))).thenReturn(Success())
+    val config = mockedSuccessfullIndexerConfigNoReindexing
+    when(config.indexIFile(Matchers.argThat(arg))).thenReturn(Success())
 
-    val job = ProjectIndexJob(indexer, index, project, INTERVAL)
+    val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
-    addSourceFile(project.underlying)("Change.scala", "")
-    addContent(project.underlying)("Change.scala", "class Foo")
+    addSourceFile(project)("Change.scala", "")
+    addContent(project)("Change.scala", "class Foo")
 
     job.schedule()
-    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(indexer, times(2)).indexIFile(Matchers.argThat(arg))
+    verify(config, times(2)).indexIFile(Matchers.argThat(arg))
   }
 
   @Test def addingAFileShouldTriggerIndexing() {
@@ -79,48 +82,47 @@ class ProjectIndexJobTest {
     val latch = new CountDownLatch(1)
     val arg = mocks.args.fileNamed("Add.scala")
 
-    val index = mock(classOf[Index])
-    val indexer = mockedSuccessfullIndexer(index)
+    val config = mockedSuccessfullIndexerConfigNoReindexing
 
-    val job = ProjectIndexJob(indexer, index, project, INTERVAL)
+    val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
-    addSourceFile(project.underlying)("Add.scala", "")
+    addSourceFile(project)("Add.scala", "")
 
     job.schedule()
-    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(indexer, times(1)).indexIFile(Matchers.argThat(arg))
+    verify(config, times(1)).indexIFile(Matchers.argThat(arg))
   }
 
   @Test def deletingAFileShouldTriggerRemoval() {
     // When a file is deleted Index.removeOccurrencesFromFile should be invoked
+
     val latch = new CountDownLatch(1)
     val arg = mocks.args.pathEndingWith("Remove.scala")
 
-    val index = mock(classOf[Index])
-    val indexer = mockedSuccessfullIndexer(index)
+    val config = mockedSuccessfullIndexerConfigNoReindexing
 
-    when(index.removeOccurrencesFromFile(
+    when(config.removeOccurrencesFromFile(
         Matchers.argThat(arg),
-        Matchers.eq(project.underlying))).thenReturn(Success())
+        Matchers.eq(project))).thenReturn(Success())
 
-    val job = ProjectIndexJob(indexer, index, project, INTERVAL)
+    val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
-    addSourceFile(project.underlying)("Remove.scala", "")
-    deleteSourceFile(project.underlying)("Remove.scala")
+    addSourceFile(project)("Remove.scala", "")
+    deleteSourceFile(project)("Remove.scala")
 
     job.schedule()
-    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(index).removeOccurrencesFromFile(
+    verify(config).removeOccurrencesFromFile(
         Matchers.argThat(arg),
-        Matchers.eq(project.underlying))
+        Matchers.eq(project))
   }
 
 
@@ -129,20 +131,19 @@ class ProjectIndexJobTest {
     // don't want it to try and index the project again.
     val latch = new CountDownLatch(1)
 
-    val index = mock(classOf[Index])
-    val indexer = mock(classOf[SourceIndexer])
-    when(indexer.indexProject(project)).thenReturn(
+    val config = mockIndexerConfigWithException(new OccurrenceCollector.InvalidPresentationCompilerException(""))
+    when(config.indexProject(project)).thenReturn(
         Failure(new OccurrenceCollector.InvalidPresentationCompilerException("")))
 
-    val job = ProjectIndexJob(indexer, index, project, INTERVAL)
+    val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
     job.schedule()
-    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(indexer, times(1)).indexProject(project)
+    verify(config, times(1)).indexProject(project)
   }
 
   @Test def ioExceptionWhenIndexing() {
@@ -150,21 +151,20 @@ class ProjectIndexJobTest {
     // try and index the project again later.
     val latch = new CountDownLatch(2)
 
-    val index = mock(classOf[Index])
-    val indexer = mock(classOf[SourceIndexer])
+    val config = mockIndexerConfigWithException(new IOException)
 
-    when(indexer.indexProject(project)).thenReturn(
+    when(config.indexProject(project)).thenReturn(
         Failure(new IOException))
 
-    val job = ProjectIndexJob(indexer, index, project, INTERVAL)
+    val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
     job.schedule()
-    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(indexer, atLeast(2)).indexProject(project)
+    verify(config, atLeast(2)).indexProject(project)
   }
 
   @Test def corrupIndexExceptionWhenIndexing() {
@@ -172,21 +172,20 @@ class ProjectIndexJobTest {
     // try and index the project again later.
     val latch = new CountDownLatch(2)
 
-    val index = mock(classOf[Index])
-    val indexer = mock(classOf[SourceIndexer])
+    val config = mockIndexerConfigWithException(new CorruptIndexException(""))
 
-    when(indexer.indexProject(project)).thenReturn(
+    when(config.indexProject(project)).thenReturn(
         Failure(new CorruptIndexException("")))
 
-    val job = ProjectIndexJob(indexer, index, project, INTERVAL)
+    val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
     job.schedule()
-    latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(indexer, atLeast(2)).indexProject(project)
+    verify(config, atLeast(2)).indexProject(project)
   }
 
 }
@@ -196,24 +195,39 @@ object ProjectIndexJobTest
      with TestUtil {
 
   val INTERVAL = 500
-  val MAX_WAIT = 2000
 
-  def mockedSuccessfullIndexer(index: Index) = {
-    val indexer = mock(classOf[SourceIndexer])
-    when(indexer.indexProject(project)).thenReturn(Success(()))
-    when(indexer.indexIFile(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(Success(()))
-    when(index.removeOccurrencesFromFile(
-        Matchers.argThat(mocks.args.anyInstance[IPath]),
-        Matchers.argThat(mocks.args.anyInstance[IProject]))).thenReturn(Success(()))
-    indexer
+  class Config extends Index with SourceIndexer {
+    override val base: IPath = new Path(mkPath("target","project-index-job-test"))
   }
 
-  class JobChangeAdapter extends IJobChangeListener {
-    override def aboutToRun(event: IJobChangeEvent): Unit = {}
-    override def awake(event: IJobChangeEvent): Unit = {}
-    override def done(event: IJobChangeEvent): Unit = {}
-    override def running(event: IJobChangeEvent): Unit = {}
-    override def scheduled(event: IJobChangeEvent): Unit = {}
-    override def sleeping(event: IJobChangeEvent): Unit = {}
+  def mockedSuccessfullIndexerConfig = {
+    val config = mock(classOf[Config])
+    when(config.indexProject(project)).thenReturn(Success(()))
+    when(config.indexIFile(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(Success(()))
+    when(config.isIndexable(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(true)
+    when(config.removeOccurrencesFromFile(
+        Matchers.argThat(mocks.args.anyInstance[IPath]),
+        Matchers.argThat(mocks.args.anyInstance[ScalaProject]))).thenReturn(Success(()))
+    config
+  }
+
+  def mockedSuccessfullIndexerConfigReIndexing = {
+    val config = mockedSuccessfullIndexerConfig
+    when(config.indexExists(project.underlying)).thenReturn(false)
+    config
+  }
+
+  def mockedSuccessfullIndexerConfigNoReindexing = {
+    val config = mockedSuccessfullIndexerConfig
+    when(config.indexExists(project.underlying)).thenReturn(true)
+    config
+  }
+
+  def mockIndexerConfigWithException(ex: Exception) = {
+    val config = mock(classOf[Config])
+    when(config.indexProject(project)).thenReturn(Failure(ex))
+    when(config.deleteIndex(project.underlying)).thenReturn(Success(true))
+    when(config.indexExists(project.underlying)).thenReturn(false)
+    config
   }
 }

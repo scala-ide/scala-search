@@ -1,15 +1,14 @@
 package org.scala.tools.eclipse.search
 
 import scala.tools.eclipse.logging.HasLogger
-
 import org.eclipse.core.resources.IFile
-import org.eclipse.core.resources.IProject
 import org.eclipse.core.resources.IResource
 import org.eclipse.core.resources.IResourceChangeEvent
 import org.eclipse.core.resources.IResourceChangeListener
 import org.eclipse.core.resources.IResourceDelta
 import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
+import scala.tools.eclipse.ScalaProject
 
 /**
  * Convenient way to react to changes that happen to
@@ -22,7 +21,7 @@ object FileChangeObserver {
    * are responsible for stopping the listener when appropriate using the
    * stop method on Observing.
    */
-  def apply(p: IProject)
+  def apply(p: ScalaProject)
            (onChanged: IFile => Unit = _ => (),
             onRemoved: IFile => Unit = _ => (),
             onAdded: IFile => Unit = _ => ()): Observing = {
@@ -40,7 +39,7 @@ object FileChangeObserver {
   // Hiding the Eclipse implementation here as we don't want the methods that
   // Eclipse needs to leak into the interface of FileChangeObserver.
   private class ChangeListener(
-           project: IProject,
+           project: ScalaProject,
          onChanged: IFile => Unit = _ => (),
          onRemoved: IFile => Unit = _ => (),
            onAdded: IFile => Unit = _ => ()) extends IResourceChangeListener with HasLogger {
@@ -57,7 +56,7 @@ object FileChangeObserver {
           if (resource.getType == IResource.FILE) {
             if (resource.isInstanceOf[IFile]) {
               val file = resource.asInstanceOf[IFile]
-              if (file.getProject().equals(project)) {
+              if (file.getProject().equals(project.underlying)) {
                 delta.getKind match {
                   case IResourceDelta.ADDED   => onAdded(file)
                   case IResourceDelta.REMOVED => onRemoved(file)

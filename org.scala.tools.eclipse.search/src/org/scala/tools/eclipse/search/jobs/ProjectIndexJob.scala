@@ -17,6 +17,7 @@ import org.scala.tools.eclipse.search.indexing.OccurrenceCollector.InvalidPresen
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer.UnableToIndexFilesException
+import org.scala.tools.eclipse.search.Observing
 
 /**
  * Background jobs that indexes the source files of a given project.
@@ -28,10 +29,11 @@ import org.scala.tools.eclipse.search.indexing.SourceIndexer.UnableToIndexFilesE
  * needs to be re-indexed.
  */
 class ProjectIndexJob private (
-    indexer: SourceIndexer,
-    index: Index,
-    project: ScalaProject,
-    interval: Long) extends WorkspaceJob("Project Indexing Job: " + project.underlying.getName) with HasLogger {
+  config: Index with SourceIndexer,
+  project: ScalaProject,
+  interval: Long,
+  onStopped: (ProjectIndexJob) => Unit = _ => ()
+) extends WorkspaceJob("Project Indexing Job: " + project.underlying.getName) with HasLogger {
 
   private trait FileEvent
   private case object Added extends FileEvent
@@ -42,62 +44,73 @@ class ProjectIndexJob private (
   private val changedResources: BlockingQueue[(IFile, FileEvent)] = new LinkedBlockingQueue[(IFile, FileEvent)]
 
   private val changed = (f: IFile) => {
-    if (SearchPlugin.isIndexable(f)) {
+    if (config.isIndexable(f)) {
       changedResources.put(f, Changed)
     }
   }
 
   private val added = (f: IFile) => {
-    if (SearchPlugin.isIndexable(f)) {
+    if (config.isIndexable(f)) {
       changedResources.put(f, Added)
     }
   }
 
   private val removed = (f: IFile) => changedResources.put(f, Removed)
 
-  private val observer = FileChangeObserver(project.underlying)(
-    onChanged = changed,
-    onAdded = added,
-    onRemoved = removed
-  )
+  @volatile var observer: Observing = _
 
   private def projectIsOpenAndExists: Boolean = {
     project.underlying.exists() && project.underlying.isOpen
   }
 
+  private def setup {
+    observer = FileChangeObserver(project)(
+      onChanged = changed,
+      onAdded = added,
+      onRemoved = removed
+    )
+  }
+
   override def runInWorkspace(monitor: IProgressMonitor): IStatus = {
 
     if (monitor.isCanceled()) {
+      stopped()
       return Status.CANCEL_STATUS
     }
 
     val shouldIndex = for {
       proj <- Option(project)
-      underlying <- Option(proj.underlying)
-      plugin <- SearchPlugin.plugin
-    } yield !plugin.indexLocationForProject(underlying).exists
+    } yield {
+      !config.indexExists(proj.underlying)
+    }
 
     if (shouldIndex.getOrElse(false)) {
-      indexer.indexProject(project).recover(handlers)
+      config.indexProject(project).recover(handlers)
     }
 
     while( !changedResources.isEmpty && !monitor.isCanceled() && projectIsOpenAndExists) {
       val (file, changed) = changedResources.poll()
       monitor.subTask(file.getName())
       changed match {
-        case Changed => indexer.indexIFile(file).recover(handlers)
-        case Added   => indexer.indexIFile(file).recover(handlers)
-        case Removed => index.removeOccurrencesFromFile(file.getProjectRelativePath(), file.getProject).recover(handlers)
+        case Changed => config.indexIFile(file).recover(handlers)
+        case Added   => config.indexIFile(file).recover(handlers)
+        case Removed => config.removeOccurrencesFromFile(file.getProjectRelativePath(), project).recover(handlers)
       }
       monitor.worked(1)
     }
     monitor.done()
 
-    if (projectIsOpenAndExists && !monitor.isCanceled()) {
-      schedule(interval)
+    if (monitor.isCanceled()) {
+      stopped()
     } else {
-      observer.stop
+      if (projectIsOpenAndExists) {
+        schedule(interval)
+      } else {
+        cancel()
+        stopped()
+      }
     }
+
     Status.OK_STATUS
   }
 
@@ -108,11 +121,8 @@ class ProjectIndexJob private (
   private def removeIndexAndRestart = {
     logger.debug(s"The index was broken so we delete it and re-index the project ${project.underlying.getName}")
     cancel() // Stop the current 'run' of the thread.
-    SearchPlugin.plugin.foreach { plugin =>
-      val folder = plugin.indexLocationForProject(project.underlying)
-      folder.delete()
-      schedule(interval)
-    }
+    config.deleteIndex(project.underlying)
+    schedule(interval)
   }
 
   // Logic for how we deal with the various failures that can happen when indexing.
@@ -123,6 +133,7 @@ class ProjectIndexJob private (
     case ex: InvalidPresentationCompilerException =>
       logger.error(ex)
       cancel()
+      stopped()
     //
     // IOExceptions wile indexing some files. Simply log the error and let the job
     // keep running as usual.
@@ -136,15 +147,24 @@ class ProjectIndexJob private (
     case otherwise =>
       removeIndexAndRestart
   }
+
+  private def stopped() = {
+    observer.stop
+    onStopped(this)
+  }
 }
 
 object ProjectIndexJob extends HasLogger {
 
-  def apply(indexer: SourceIndexer, index: Index, sp: ScalaProject, interval: Int = 5000): Job = {
+  def apply(config: Index with SourceIndexer, 
+                sp: ScalaProject, 
+          interval: Int = 5000,
+         onStopped: (ProjectIndexJob) => Unit = _ => ()): ProjectIndexJob = {
 
     logger.debug("Started ProjectIndexJob for " + sp.underlying.getName)
 
-    val job = new ProjectIndexJob(indexer, index, sp, interval = interval)
+    val job = new ProjectIndexJob(config, sp, interval, onStopped)
+    job.setup
     job.setRule(ResourcesPlugin.getWorkspace().getRuleFactory().modifyRule(sp.underlying))
     job.setPriority(Job.LONG)
     job

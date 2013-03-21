@@ -13,6 +13,8 @@ import org.scala.tools.eclipse.search.indexing._
   classOf[LuceneIntegrationTest],
   classOf[IndexTest],
   classOf[UsingTest],
-  classOf[ProjectIndexJobTest]
+  classOf[IndexJobManagerTest],
+  classOf[ProjectIndexJobTest],
+  classOf[ProjectChangeObserverTest]
 ))
 class TestsSuite {}
