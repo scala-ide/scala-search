@@ -18,9 +18,10 @@ case object Reference extends OccurrenceKind
 
 object LuceneFields {
   val WORD            = "word"
-  val FILE            = "file"
+  val PATH            = "path"
   val OFFSET          = "offset"
   val OCCURRENCE_KIND = "occurrenceKind"
+  val PROJECT_NAME    = "project"
 }
 
 /**
