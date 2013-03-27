@@ -38,7 +38,7 @@ class SourceIndexer(index: Index) extends HasLogger {
    */
   def indexScalaFile(sf: ScalaSourceFile): Unit = {
     logger.debug(s"Indexing document: ${sf.file.path}")
-    index.removeOccurrencesFromFile(sf.file.file, sf.getUnderlyingResource().getProject())
+    index.removeOccurrencesFromFile(sf.workspaceFile.getProjectRelativePath(), sf.scalaProject.underlying)
     OccurrenceCollector.findOccurrences(sf).fold(
       fail => logger.debug(fail),
       occurrences => index.addOccurrences(occurrences, sf.getUnderlyingResource().getProject()))
