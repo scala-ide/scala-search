@@ -26,6 +26,9 @@ import scala.util.Success
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.using
+import org.eclipse.core.runtime.IPath
+import org.apache.lucene.search.BooleanQuery
+import org.apache.lucene.search.BooleanClause
 
 /**
  * A Lucene based index of all occurrences of Scala entities recorded
@@ -54,7 +57,7 @@ class Index(indicesRoot: File) extends HasLogger {
    */
   def addOccurrences(occurrences: Seq[Occurrence], project: IProject): Unit = {
     doWithWriter(project) { writer =>
-      val docs = occurrences.map( toDocument )
+      val docs = occurrences.map( toDocument(project, _) )
       writer.addDocuments(docs.toIterable.asJava)
     }
   }
@@ -63,9 +66,11 @@ class Index(indicesRoot: File) extends HasLogger {
    * Removed all occurrences from the index that are recorded in the
    * given file
    */
-  def removeOccurrencesFromFile(file: File, project: IProject): Unit = {
+  def removeOccurrencesFromFile(path: IPath, project: IProject): Unit = {
     doWithWriter(project) { writer =>
-      val query = new TermQuery(TermQueries.fileTerm(file))
+      val query = new BooleanQuery()
+      query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
+      query.add(new TermQuery(Terms.projectTerm(project)), BooleanClause.Occur.MUST)
       writer.deleteDocuments(query)
     }
   }
@@ -74,9 +79,11 @@ class Index(indicesRoot: File) extends HasLogger {
    * Returns all occurrences recorded in the index for the given file. Mostly useful
    * for testing purposes.
    */
-  def occurrencesInFile(file: File, project: IProject): Seq[Occurrence] = {
+  def occurrencesInFile(path: IPath, project: IProject): Seq[Occurrence] = {
     withSearcher(project) { searcher =>
-      val query = new TermQuery(TermQueries.fileTerm(file))
+      val query = new BooleanQuery()
+      query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
+      query.add(new TermQuery(Terms.projectTerm(project)), BooleanClause.Occur.MUST)
       val hits = searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
       hits.map { hit =>
         val doc = searcher.doc(hit.doc)
@@ -113,9 +120,14 @@ class Index(indicesRoot: File) extends HasLogger {
   /**
    * Collection of Term's that are used in multiple queries.
    */
-  private object TermQueries {
-    def fileTerm(file: File) = {
-      new Term(LuceneFields.FILE, file.getAbsolutePath())
+  private object Terms {
+
+    def projectTerm(project: IProject) = {
+      new Term(LuceneFields.PROJECT_NAME, project.getName)
+    }
+
+    def pathTerm(path: IPath) = {
+      new Term(LuceneFields.PATH, path.toPortableString())
     }
   }
 
@@ -123,13 +135,14 @@ class Index(indicesRoot: File) extends HasLogger {
    * Create a Lucene document based on the information stored in the
    * occurrence.
    */
-  private def toDocument(o: Occurrence): Document = {
+  private def toDocument(project: IProject, o: Occurrence): Document = {
     import LuceneFields._
     val doc = new Document
     doc.add(new Field(WORD, o.word, Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field(FILE, o.file.file.file.getAbsolutePath, Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new Field(PATH, o.file.workspaceFile.getProjectRelativePath().toPortableString(), Field.Store.YES, Field.Index.NOT_ANALYZED))
     doc.add(new Field(OFFSET, o.offset.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
     doc.add(new Field(OCCURRENCE_KIND, o.occurrenceKind.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new Field(PROJECT_NAME, project.getName, Field.Store.YES, Field.Index.NOT_ANALYZED))
     doc
   }
 
@@ -141,15 +154,24 @@ class Index(indicesRoot: File) extends HasLogger {
     import LuceneFields._
     (for {
       word           <- Option(doc.get(WORD))
-      path           <- Option(doc.get(FILE))
+      path           <- Option(doc.get(PATH))
       offset         <- Option(doc.get(OFFSET))
       occurrenceKind <- Option(doc.get(OCCURRENCE_KIND))
+      projectName    <- Option(doc.get(PROJECT_NAME))
     } yield {
-      val workspace = ResourcesPlugin.getWorkspace()
-      val location= Path.fromOSString(path)
-      val ifile = Option(workspace.getRoot().getFileForLocation(location)) getOrElse (throw new Exception("Couldn't get ifile from path " + path))
-      val file = Util.scalaSourceFileFromIFile(ifile).getOrElse (throw new Exception("Wasn't able to create ScalaSourceFile from path " + path))
+      val root = ResourcesPlugin.getWorkspace().getRoot()
+
+      val project = Option(root.getProject(projectName)).getOrElse(
+          throw new ScalaSearchException(s"No project named ${projectName} in the workspace"))
+
+      val ifile = Option(project.getFile(Path.fromPortableString(path))).getOrElse(
+          throw new ScalaSearchException(s"No file exists at ${path} in the project ${projectName}"))
+
+      val file = Util.scalaSourceFileFromIFile(ifile).getOrElse(
+          throw new ScalaSearchException(s"Wasn't able to create ScalaSourceFile from path ${path}"))
+
       Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind))
+
     }) getOrElse {
       throw new ScalaSearchException("Wasn't able to convert document to occurrence")
     }

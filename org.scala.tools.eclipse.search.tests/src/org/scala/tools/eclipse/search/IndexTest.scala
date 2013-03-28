@@ -42,9 +42,28 @@ class IndexTest {
 
     val interestingNames = List("method", "methodOne", "methodTwo", "methodThree")
 
-    val results = index.occurrencesInFile(source.file.file, source.getUnderlyingResource().getProject()).filter( x => interestingNames.contains(x.word))
+    val results = index.occurrencesInFile(
+        source.workspaceFile.getProjectRelativePath(),
+        source.scalaProject.underlying).filter( x => interestingNames.contains(x.word))
 
     assertEquals("Should be able to store and retrieve occurrences", expected, results)
+  }
+
+  @Test def deleteOccurrences() {
+
+    val index = new Index(INDEX_DIR)
+    val indexer = new SourceIndexer(index)
+    val source = scalaCompilationUnit(mkPath("org","example","ScalaClass.scala"))
+    indexer.indexScalaFile(source)
+
+    index.removeOccurrencesFromFile(source.workspaceFile.getProjectRelativePath(), source.scalaProject.underlying)
+
+    val results = index.occurrencesInFile(
+        source.workspaceFile.getProjectRelativePath(),
+        source.scalaProject.underlying)
+
+    assertEquals("Index should not contain any occurrence in file", 0, results.size)
+
   }
 
 }
