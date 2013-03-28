@@ -39,6 +39,11 @@ class UsingTest {
     }
   }
 
+  @Test def canCatchExceptionsOnResourceOpen() {
+    lazy val r: Closeable = throw new ExpectedException("This shouldn't propagate")
+    using(r, handlers = Ex.ignoring(classOf[ExpectedException])) { _ => }
+  }
+
   // Make sure we always close the resource
 
   @Test def shouldCloseOnSuccess() {

@@ -20,14 +20,16 @@ object SearchPlugin extends HasLogger {
 
   final val PLUGIN_ID  = "org.scala.tools.eclipse.search"
 
-  @volatile var plugin: SearchPlugin = _
+  @volatile private var pluginInstance: SearchPlugin = _
+
+  def plugin: Option[SearchPlugin] = Option(pluginInstance)
 
   /**
-   * Checks if the `file` is a type we know how to index.
+   * Checks if the `file` exists and is a type we know how to index.
    */
   def isIndexable(file: IFile): Boolean = {
-    // TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001602
-    Option(file).map( _.getFileExtension() == "scala").getOrElse(false)
+    // TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001616
+    Option(file).filter(_.exists).map( _.getFileExtension() == "scala").getOrElse(false)
   }
 }
 
@@ -38,9 +40,10 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
   @volatile private var indexLocation: File = _
   @volatile private var index: Index = _
   @volatile private var sourceIndexer: SourceIndexer = _
+  @volatile private var jobs: Seq[Job] = _
 
   override def start(context: BundleContext) {
-    SearchPlugin.plugin = this
+    SearchPlugin.pluginInstance = this
     super.start(context)
 
     indexLocation = getStateLocation().append(INDEX_DIR_NAME).toFile()
@@ -48,16 +51,20 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
     sourceIndexer = new SourceIndexer(index)
 
     val root = ResourcesPlugin.getWorkspace().getRoot()
-    root.getProjects().map(Option.apply).flatten.foreach { proj =>
-      ScalaPlugin.plugin.asScalaProject(proj).foreach { sp =>
-        ProjectIndexJob(sourceIndexer, sp)
-      }
+
+    jobs = for {
+      project <- root.getProjects().map(p => Option.apply(p).flatMap(ScalaPlugin.plugin.asScalaProject)).flatten
+    } yield {
+      val p = ProjectIndexJob(sourceIndexer, index, project)
+      p.schedule()
+      p
     }
   }
 
   override def stop(context: BundleContext) {
     super.stop(context)
-    SearchPlugin.plugin = null
+    jobs.foreach( _.cancel() )
+    SearchPlugin.pluginInstance = null
     indexLocation = null
     index = null
     sourceIndexer = null
