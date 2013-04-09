@@ -39,14 +39,23 @@ object OccurrenceCollector extends HasLogger {
 
           case Select(rest,name) if !isSynthetic(pc)(t, name.toString) =>
             occurrences += Occurrence(name.toString, file, t.pos.point, Reference)
-            super.traverse(rest) // recurse in the case of chained selects: foo.baz.bar
+            traverse(rest) // recurse in the case of chained selects: foo.baz.bar
 
           // Method definitions
-          case DefDef(_, name, _, _, _, body) if !isSynthetic(pc)(t, name.toString) =>
+          case DefDef(mods, name, _, args, _, body) if !isSynthetic(pc)(t, name.toString) =>
             occurrences += Occurrence(name.toString, file, t.pos.point, Declaration)
-            super.traverse(body)
+            traverseTrees(mods.annotations)
+            traverseTreess(args)
+            traverse(body)
 
-          case _ => super.traverse(t)
+          // Val's and arguments.
+          case ValDef(_, name, tpt, rhs) =>
+            occurrences += Occurrence(name.toString, file, t.pos.point, Declaration)
+            traverse(tpt)
+            traverse(rhs)
+
+          case _ =>
+            super.traverse(t)
         }
       }
     }

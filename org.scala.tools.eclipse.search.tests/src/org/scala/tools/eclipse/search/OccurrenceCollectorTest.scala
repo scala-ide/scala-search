@@ -68,5 +68,18 @@ class OccurrenceCollectorTest {
     }
   }
 
+  @Test def stringInterpolation() {
+    doWithOccurrencesInUnit("org","example","StringInterpolation.scala") { occurrences =>
+      val x = occurrenceFor("x", occurrences)
+      assertEquals("Should be 2 occurrences of x %s".format(x), 2, x.size)
+    }
+  }
+
+  @Test def annotationsOnMethods() {
+    doWithOccurrencesInUnit("org","example", "Annotations.scala") { occurrences =>
+      val x = occurrenceFor("IOException", occurrences)
+      assertEquals("Should be 1 occurrences of IOException %s".format(x), 1, x.size)
+    }
+  }
 
 }
