@@ -3,6 +3,7 @@ package org.scala.tools.eclipse.search.indexing
 import scala.tools.eclipse.ScalaPresentationCompiler
 import scala.tools.eclipse.javaelements.ScalaSourceFile
 import scala.tools.eclipse.logging.HasLogger
+import scala.util._
 
 /**
  * Used to parse and traverse the parse tree of a compilation unit finding
@@ -10,19 +11,30 @@ import scala.tools.eclipse.logging.HasLogger
  */
 object OccurrenceCollector extends HasLogger {
 
+  class InvalidPresentationCompilerException(msg: String) extends Exception(msg)
+
   /**
-   * Find all occurrences of words we're find interesting in a compilation unit. It
-   * will return Left if it wasn't able to access the source file.
+   * Find all occurrences of words we're find interesting in a compilation unit.
+   *
+   * This can fail in the following ways
+   *
+   * InvalidPresentationCompilerException:
+   *   if the presentation compiler is not available (for instance, if it cannot
+   *   be started because of classpath issues)
+   *
    */
-  def findOccurrences(file: ScalaSourceFile): Either[String, Seq[Occurrence]] = {
-    lazy val err = Left("Couldn't get source file for %".format(file.file.path.toString()))
+  def findOccurrences(file: ScalaSourceFile): Try[Seq[Occurrence]] = {
+
+    lazy val err: Try[Seq[Occurrence]] = Failure(
+        new InvalidPresentationCompilerException(
+            s"Couldn't get source file for ${file.workspaceFile.getProjectRelativePath()}"))
+
     file.withSourceFile( (source, pcompiler) => {
       pcompiler.withParseTree(source) { tree =>
-        // withParseTree is invariant so we need state the exact type so it doesn't
-        // infer the type Right.
-        Right(findOccurrences(pcompiler)(file, tree)): Either[String, Seq[Occurrence]]
+        Success(findOccurrences(pcompiler)(file, tree)): Try[Seq[Occurrence]]
       }
     })(err)
+
   }
 
   private def findOccurrences(pc: ScalaPresentationCompiler)
