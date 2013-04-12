@@ -1,47 +1,126 @@
 package org.scala.tools.eclipse.search.indexing
 
+import scala.tools.eclipse.ScalaProject
 import scala.tools.eclipse.javaelements.ScalaSourceFile
 import scala.tools.eclipse.logging.HasLogger
-import org.eclipse.core.resources.IWorkspaceRoot
-import scala.tools.eclipse.ScalaPlugin
-import scala.tools.eclipse.ScalaProject
-import org.scala.tools.eclipse.search.Util._
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
 import org.eclipse.core.resources.IFile
-import scala.tools.eclipse.util.Utils
+import org.scala.tools.eclipse.search.SearchPlugin
+import org.scala.tools.eclipse.search.Util.scalaSourceFileFromIFile
+import java.io.IOException
 
 /**
  * Indexes Scala sources and add all occurrences to the `index`.
  */
 class SourceIndexer(index: Index) extends HasLogger {
 
+  import SourceIndexer._
+
   /**
-   * Indexes all sources in `project`. This removes all previous occurrences recorded in
-   * that project.
+   * Indexes all sources in the project `proj`.
+   *
+   * This removes all previous occurrences recorded in that project.
+   *
+   * This will fail if during indexing an InvalidPresentationCompilerException
+   * or CorruptIndexException is thrown.
+   *
+   * If any IOExceptions are thrown this method will return a Failure with a
+   * reference to all the files that failed. The remaining files will still have
+   * been indexed.
+   *
    */
-  def indexProject(proj: ScalaProject): Unit = {
-    Utils.debugTimed("Indexing project %s".format(proj)) {
-      proj.allSourceFiles.foreach { indexIFile }
+  def indexProject(proj: ScalaProject): Try[Unit] = {
+    // Index all of the files in the project. If one file fails, stop indexing the rest.
+
+    // TODO: We want to delete the entire index, if one exists, before indexing.
+
+    var blockingFailure: Option[Try[Unit]] = None
+    var ioFailures: Seq[IFile] = Nil
+
+    val it = proj.allSourceFiles.iterator
+    while(blockingFailure.isEmpty && it.hasNext) {
+      val file = it.next
+      indexIFile(file) match {
+        case f@Failure(ex: IOException) => ioFailures = ioFailures :+ file
+        case f@Failure(ex) => blockingFailure = Some(f)
+        case _ => ()
+      }
     }
+
+    blockingFailure.fold {
+      if (ioFailures.isEmpty) {
+        Success(()): Try[Unit]
+      } else {
+        Failure(new UnableToIndexFilesException(ioFailures)): Try[Unit]
+      }
+    }( fail => fail )
+
   }
 
   /**
    * Indexes the parse tree of an IFile if the IFile is pointing to a Scala source file.
+   *
    * This removes all previous occurrences recorded in that file.
+   *
+   * This can fail with the following errors
+   *
+   * IOException
+   *   If there is an underlying IOException when trying to open the directory that stores
+   *   the index on disc.
+   *
+   * CorruptIndexException
+   *   If the Index somehow has become corrupted.
+   *
+   * InvalidPresentationCompilerException
+   *   If it wasn't able to get the AST of one Scala files that it wanted to Index.
+   *
    */
-  def indexIFile(file: IFile): Unit = {
-    scalaSourceFileFromIFile(file).foreach { cu => indexScalaFile(cu) }
+  def indexIFile(file: IFile): Try[Unit] = {
+    val success: Try[Unit] = Success(())
+
+    if (SearchPlugin.isIndexable(file)) {
+      scalaSourceFileFromIFile(file).fold {
+        // TODO: We couldn't convert it to a Scala file for some reason. What to do?
+        success
+      } {
+        cu => indexScalaFile(cu)
+      }
+    } else {
+      success
+    }
   }
 
   /**
-   * Indexes the occurrences in a Scala file. This removes all previous occurrences
-   * recorded in that file.
+   * Indexes the occurrences in a Scala file.
+   *
+   * This removes all previous occurrences recorded in that file.
+   *
+   * This can fail with the following errors
+   *
+   * IOException
+   *   If there is an underlying IOException when trying to open the directory that
+   *   stores the index on disc.
+   *
+   * CorruptIndexException
+   *   If the Index somehow has become corrupted.
+   *
+   * InvalidPresentationCompilerException
+   *   If it wasn't able to get the AST of one Scala files that it wanted to Index.
    */
-  def indexScalaFile(sf: ScalaSourceFile): Unit = {
+  def indexScalaFile(sf: ScalaSourceFile): Try[Unit] = {
     logger.debug(s"Indexing document: ${sf.file.path}")
-    index.removeOccurrencesFromFile(sf.workspaceFile.getProjectRelativePath(), sf.scalaProject.underlying)
-    OccurrenceCollector.findOccurrences(sf).fold(
-      fail => logger.debug(fail),
-      occurrences => index.addOccurrences(occurrences, sf.getUnderlyingResource().getProject()))
+
+    for {
+      _ <- index.removeOccurrencesFromFile(sf.workspaceFile.getProjectRelativePath(), sf.scalaProject.underlying)
+      occurrences <- OccurrenceCollector.findOccurrences(sf)
+      _ <- index.addOccurrences(occurrences, sf.getUnderlyingResource().getProject())
+    } yield Success(())
   }
 
+}
+
+object SourceIndexer {
+  class UnableToIndexFilesException(val files: Seq[IFile]) extends Exception()
 }

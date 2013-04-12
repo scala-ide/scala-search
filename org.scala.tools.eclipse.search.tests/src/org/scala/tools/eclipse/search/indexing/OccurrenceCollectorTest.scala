@@ -1,12 +1,11 @@
-package org.scala.tools.eclipse.search
+package org.scala.tools.eclipse.search.indexing
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.tools.eclipse.testsetup.TestProjectSetup
-import scala.tools.eclipse.javaelements.ScalaSourceFile
-import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
-import org.scala.tools.eclipse.search.indexing.Occurrence
-import java.io.File
+import scala.util.Failure
+import scala.util.Success
+import org.scala.tools.eclipse.search.TestUtil
 
 object OccurrenceCollectorTest extends TestProjectSetup("aProject", bundleName= "org.scala.tools.eclipse.search.tests")
                                   with TestUtil {
@@ -18,9 +17,10 @@ object OccurrenceCollectorTest extends TestProjectSetup("aProject", bundleName= 
   def doWithOccurrencesInUnit(path: String*)(f: Seq[Occurrence] => Unit): Unit = {
     val unit = scalaCompilationUnit(mkPath(path:_*))
     val occurrences = OccurrenceCollector.findOccurrences(unit)
-    occurrences.fold(
-      error => fail(error),
-      occs => f(occs))
+    occurrences match {
+      case Failure(f) => fail(s"Got an unexpected failure when finding occurrences ${f.getMessage()}")
+      case Success(occs) => f(occs)
+    }
   }
 
 }

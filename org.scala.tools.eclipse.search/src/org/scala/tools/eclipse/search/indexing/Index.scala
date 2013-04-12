@@ -1,61 +1,84 @@
 package org.scala.tools.eclipse.search.indexing
 
 import java.io.File
+import java.io.IOException
+
 import scala.Array.fallbackCanBuildFrom
 import scala.collection.JavaConverters.asJavaIterableConverter
 import scala.tools.eclipse.logging.HasLogger
+import scala.util.Try
+import scala.util.control.{Exception => Ex}
+import scala.util.control.Exception.Catch
+
 import org.apache.lucene.analysis.core.SimpleAnalyzer
+import org.apache.lucene.document.Document
+import org.apache.lucene.document.Field
 import org.apache.lucene.index.DirectoryReader
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.index.IndexWriterConfig
 import org.apache.lucene.index.Term
+import org.apache.lucene.search.BooleanClause
+import org.apache.lucene.search.BooleanQuery
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.search.TermQuery
 import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.util.Version
-import org.apache.lucene.document.Document
-import org.apache.lucene.document.Field
-import org.scala.tools.eclipse.search.Util
 import org.eclipse.core.resources.IProject
-import org.scala.tools.eclipse.search.SearchPlugin
-import org.scala.tools.eclipse.search.ScalaSearchException
-import scala.util.Try
-import org.scala.tools.eclipse.search.ScalaSearchException
-import scala.util.Failure
-import scala.util.Success
 import org.eclipse.core.resources.ResourcesPlugin
-import org.eclipse.core.runtime.Path
-import org.scala.tools.eclipse.search.using
 import org.eclipse.core.runtime.IPath
-import org.apache.lucene.search.BooleanQuery
-import org.apache.lucene.search.BooleanClause
+import org.eclipse.core.runtime.Path
+import org.scala.tools.eclipse.search.SearchPlugin
+import org.scala.tools.eclipse.search.Util
+import org.scala.tools.eclipse.search.using
+
+import LuceneFields.OCCURRENCE_KIND
+import LuceneFields.OFFSET
+import LuceneFields.PATH
+import LuceneFields.PROJECT_NAME
+import LuceneFields.WORD
 
 /**
- * A Lucene based index of all occurrences of Scala entities recorded
- * in the workspace. See `toDocument` for more information about what
- * is stored in the index.
+ * A Lucene based index of all occurrences of Scala entities recorded in the workspace.
  *
- * A separate Lucene index is stored on disk for each project in the
- * Workspace.
- * 
- * This class assumes that the resources passed to the different 
- * methods exist and, in the case of a IProject, it's open.
+ * All of the methods published by Index have a return type of Try meaning that they all
+ * might fail in one way or the other. It is the responsibility of the user of the Index
+ * to react to these failures in a meaningful way.
+ *
+ * See `toDocument` for more information about what is stored in the index.
+ *
+ * A separate Lucene index is stored on disk for each project in the Workspace.
+ *
+ * This class assumes that the resources passed to the different methods exist and, in
+ * the case of a IProject, it's open.
  *
  * This class is thread-safe.
  */
 class Index(indicesRoot: File) extends HasLogger {
 
-  private def config = {
+  // internal errors, users shouldn't worry about these
+  protected trait ConversionError
+  protected case class MissingFile(path: String, project: String) extends ConversionError
+  protected case class InvalidDocument(doc: Document) extends ConversionError
+
+  protected def config = {
     val analyzer = new SimpleAnalyzer(Version.LUCENE_41)
     new IndexWriterConfig(Version.LUCENE_41, analyzer)
   }
 
-  private val MAX_POTENTIAL_MATCHES = 100000
+  //  TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001661-make-max-number-of-matches-configurable
+  protected val MAX_POTENTIAL_MATCHES = 100000
 
   /**
-   * Add all `occurrences` to the index of the specific project.
+   * Tries to add all occurrences found in a given file to the index. This method can
+   * fail with
+   *
+   * IOException - If there is an underlying IOException when trying to open
+   *               the directory on disk where the Lucene index is persisted.
+   *
+   * CorruptIndexException - If the Index somehow has become corrupted.
+   *
    */
-  def addOccurrences(occurrences: Seq[Occurrence], project: IProject): Unit = {
+  def addOccurrences(occurrences: Seq[Occurrence], project: IProject): Try[Unit] = {
     doWithWriter(project) { writer =>
       val docs = occurrences.map( toDocument(project, _) )
       writer.addDocuments(docs.toIterable.asJava)
@@ -63,10 +86,16 @@ class Index(indicesRoot: File) extends HasLogger {
   }
 
   /**
-   * Removed all occurrences from the index that are recorded in the
-   * given file
+   * Tries to remove all occurrences recorded in a given file, identified by the project
+   * relative path and the name of the project in the workspace. This method can fail
+   * with
+   *
+   * IOException - If there is an underlying IOException when trying to open
+   *               the directory on disk where the Lucene index is persisted.
+   *
+   * CorruptIndexException - If the Index somehow has become corrupted.
    */
-  def removeOccurrencesFromFile(path: IPath, project: IProject): Unit = {
+  def removeOccurrencesFromFile(path: IPath, project: IProject): Try[Unit] = {
     doWithWriter(project) { writer =>
       val query = new BooleanQuery()
       query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
@@ -76,51 +105,53 @@ class Index(indicesRoot: File) extends HasLogger {
   }
 
   /**
-   * Returns all occurrences recorded in the index for the given file. Mostly useful
-   * for testing purposes.
+   * ARM method for writing to the index. Can fail in the following ways
+   *
+   * IOException - If there is an underlying IOException when trying to open
+   *               the directory on disk where the Lucene index is persisted.
+   *
+   * It might return Failure with other exceptions depending on which methods
+   * on IndexWriter `f` is using.
    */
-  def occurrencesInFile(path: IPath, project: IProject): Seq[Occurrence] = {
-    withSearcher(project) { searcher =>
-      val query = new BooleanQuery()
-      query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
-      query.add(new TermQuery(Terms.projectTerm(project)), BooleanClause.Occur.MUST)
-      val hits = searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
-      hits.map { hit =>
-        val doc = searcher.doc(hit.doc)
-        fromDocument(doc)
+  protected def doWithWriter(project: IProject)(f: IndexWriter => Unit): Try[Unit] = {
+    val loc = SearchPlugin.plugin.get.indexLocationForProject(project)
+    using(FSDirectory.open(loc), handlers = IOToTry[Unit]) { dir =>
+      using(new IndexWriter(dir, config), handlers = IOToTry[Unit]) { writer =>
+        Try(f(writer))
       }
     }
   }
 
   /**
-   * ARM method for writing to the index.
+   * ARM method for searching the index. Can fail in the following ways
+   *
+   * IOException - If there is an underlying IOException when trying to open
+   *               the directory on disk where the Lucene index is persisted.
+   *
+   * It might return Failure with other exceptions depending on which methods
+   * on IndexSearcher `f` is using.
    */
-  private def doWithWriter(project: IProject)(f: IndexWriter => Unit): Unit = {
-    val loc = SearchPlugin.plugin.indexLocationForProject(project)
-    using(FSDirectory.open(loc)) { dir =>
-      using(new IndexWriter(dir, config)) { writer => 
-        f(writer)  
-      }
-    }
-  }
-
-  /**
-   * ARM method for searching the index.
-   */
-  private def withSearcher[A](project: IProject)(f: IndexSearcher => A): A = {
-    val loc = SearchPlugin.plugin.indexLocationForProject(project)
-    using(FSDirectory.open(loc)) { dir =>
-      using(DirectoryReader.open(dir)) { reader =>
+  protected def withSearcher[A](project: IProject)(f: IndexSearcher => A): Try[A] = {
+    val loc = SearchPlugin.plugin.get.indexLocationForProject(project)
+    using(FSDirectory.open(loc), handlers = IOToTry[A]) { dir =>
+      using(DirectoryReader.open(dir), handlers = IOToTry[A]) { reader =>
         val searcher = new IndexSearcher(reader)
-        f(searcher)
+        Try(f(searcher))
       }
     }
+  }
+
+  /**
+   * Catch all IOException's and convert them to Failures
+   */
+  private def IOToTry[X]: Catch[Try[X]] = {
+    Ex.catching(classOf[IOException]).toTry
   }
 
   /**
    * Collection of Term's that are used in multiple queries.
    */
-  private object Terms {
+  protected object Terms {
 
     def projectTerm(project: IProject) = {
       new Term(LuceneFields.PROJECT_NAME, project.getName)
@@ -132,25 +163,35 @@ class Index(indicesRoot: File) extends HasLogger {
   }
 
   /**
-   * Create a Lucene document based on the information stored in the
-   * occurrence.
+   * Create a Lucene document based on the information stored in the occurrence.
    */
-  private def toDocument(project: IProject, o: Occurrence): Document = {
+  protected def toDocument(project: IProject, o: Occurrence): Document = {
     import LuceneFields._
+
     val doc = new Document
-    doc.add(new Field(WORD, o.word, Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field(PATH, o.file.workspaceFile.getProjectRelativePath().toPortableString(), Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field(OFFSET, o.offset.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field(OCCURRENCE_KIND, o.occurrenceKind.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
-    doc.add(new Field(PROJECT_NAME, project.getName, Field.Store.YES, Field.Index.NOT_ANALYZED))
+
+    def persist(key: String, value: String) =
+      doc.add(new Field(key, value,
+          Field.Store.YES, Field.Index.NOT_ANALYZED))
+
+    persist(WORD, o.word)
+    persist(PATH, o.file.workspaceFile.getProjectRelativePath().toPortableString())
+    persist(OFFSET, o.offset.toString)
+    persist(OCCURRENCE_KIND, o.occurrenceKind.toString)
+    persist(PROJECT_NAME, project.getName)
+
     doc
   }
 
   /**
-   * Converts a Lucene Document into an Occurrence. Will throw exception if
-   * there are things that can't be converted to the expected type.
+   * Converts a Lucene Document into an Occurrence. Returns Left[InvalidDocument] if
+   * the Lucene document isn't valid and Left[MissingFile] if the file that is being
+   * referenced no longer exists. Otherwise it returns Right[Occurrence].
+   *
+   * A Lucene document is invalid if it doesn't contain the fields we expect.
+   *
    */
-  def fromDocument(doc: Document): Occurrence = {
+  protected def fromDocument(doc: Document): Either[ConversionError, Occurrence] = {
     import LuceneFields._
     (for {
       word           <- Option(doc.get(WORD))
@@ -160,21 +201,23 @@ class Index(indicesRoot: File) extends HasLogger {
       projectName    <- Option(doc.get(PROJECT_NAME))
     } yield {
       val root = ResourcesPlugin.getWorkspace().getRoot()
-
-      val project = Option(root.getProject(projectName)).getOrElse(
-          throw new ScalaSearchException(s"No project named ${projectName} in the workspace"))
-
-      val ifile = Option(project.getFile(Path.fromPortableString(path))).getOrElse(
-          throw new ScalaSearchException(s"No file exists at ${path} in the project ${projectName}"))
-
-      val file = Util.scalaSourceFileFromIFile(ifile).getOrElse(
-          throw new ScalaSearchException(s"Wasn't able to create ScalaSourceFile from path ${path}"))
-
-      Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind))
-
-    }) getOrElse {
-      throw new ScalaSearchException("Wasn't able to convert document to occurrence")
-    }
+      (for {
+        project        <- Option(root.getProject(projectName))
+        ifile          <- Option(project.getFile(Path.fromPortableString(path)))
+        file           <- Util.scalaSourceFileFromIFile(ifile)
+      } yield {
+        Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind))
+      }).fold {
+        // The file or project apparently no longer exists. This can happen
+        // if the project/file has been deleted/renamed and a search is
+        // carried out before the Eclipse Resource Events are propagated.
+        Left(MissingFile(path, projectName)): Either[ConversionError, Occurrence]
+      }(x => Right(x))
+    }).fold {
+      // The Lucene document didn't contain the fields we expected. It is very
+      // unlikely this will happen but let's delete the document to be sure.
+      Left(InvalidDocument(doc)): Either[ConversionError, Occurrence]
+    }(x => x)
   }
 
 }
