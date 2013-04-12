@@ -77,8 +77,7 @@ object OccurrenceCollector extends HasLogger {
 
   private def isSynthetic(pc: ScalaPresentationCompiler)
                          (tree: pc.Tree, name: String): Boolean = {
-    val syntheticNames = Set("<init>")
-    tree.pos == pc.NoPosition || syntheticNames.contains(name)
+    tree.pos == pc.NoPosition
   }
 
 }

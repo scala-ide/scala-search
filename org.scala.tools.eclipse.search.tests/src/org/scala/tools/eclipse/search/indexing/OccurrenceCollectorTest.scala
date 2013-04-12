@@ -82,4 +82,34 @@ class OccurrenceCollectorTest {
     }
   }
 
+  @Test def recordsOccurrencesOfSyntheticEmptyConstructor() {
+    doWithOccurrencesInUnit("org", "example", "SyntheticEmptyConstructor.scala") { occurrences =>
+      val x = occurrenceFor("<init>", occurrences).filter(_.occurrenceKind == Declaration)
+      assertEquals("Should find 1 synthetic empty constructor", 1, x.size)
+    }
+  }
+
+  @Test def recordsOccurrencesOfSyntheticConstructor() {
+    doWithOccurrencesInUnit("org", "example", "SyntheticConstructor.scala") { occurrences =>
+      val x = occurrenceFor("<init>", occurrences).filter(_.occurrenceKind == Declaration)
+      assertEquals("Should find 1 synthetic constructor", 1, x.size)
+    }
+  }
+
+  @Test def recordsOccurrencesOfExplicitConstructor() {
+    doWithOccurrencesInUnit("org", "example", "ExplicitConstructor.scala") { occurrences =>
+      val x = occurrenceFor("<init>", occurrences).filter(_.occurrenceKind == Declaration)
+      assertEquals("Should find 2 constructors", 2, x.size)
+    }
+  }
+
+  @Test def findInvocationsOfConstructors() {
+    doWithOccurrencesInUnit("org", "example", "ConstructorInvocations.scala") { occurrences =>
+      // we expect 3 here because the constructors created by the compiler calls super.<init>.
+      // The compiler generates a constructor for the class and the companion object.
+      val x = occurrenceFor("<init>", occurrences).filter(_.occurrenceKind == Reference)
+      assertEquals("Should find 3 constructors", 3, x.size)
+    }
+  }
+
 }
