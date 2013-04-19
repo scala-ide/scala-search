@@ -5,7 +5,6 @@ import scala.tools.eclipse.testsetup.TestProjectSetup
 import org.junit.Assert._
 import org.junit.Test
 import org.mockito.Mockito._
-import org.eclipse.core.resources.IProject
 import org.apache.lucene.index.IndexWriter
 import scala.util.Try
 import org.apache.lucene.document.Document
@@ -19,6 +18,7 @@ import scala.util.Success
 import org.apache.lucene.index.IndexWriter
 import org.scala.tools.eclipse.search.TestUtil
 import scala.collection.JavaConverters.asJavaIterableConverter
+import scala.tools.eclipse.ScalaProject
 
 /**
  * Tests that the correct things are stored in the LuceneIndex. We shouldn't
@@ -30,10 +30,13 @@ class IndexTest {
   import LuceneIndexTest._
 
   @Test def storeAndRetrieve() {
-    val index = new TestIndex(INDEX_DIR)
-    val indexer = new SourceIndexer(index)
+
+    val config = new TestIndex with SourceIndexer {
+      override val base = INDEX_DIR
+    }
+
     val source = scalaCompilationUnit(mkPath("org","example","ScalaClass.scala"))
-    indexer.indexScalaFile(source)
+    config.indexScalaFile(source)
 
     val expected = List(
       Occurrence("method",      source, 46,  Declaration),
@@ -47,9 +50,9 @@ class IndexTest {
 
     val interestingNames = List("method", "methodOne", "methodTwo", "methodThree")
 
-    val results = index.occurrencesInFile(
+    val results = config.occurrencesInFile(
         source.workspaceFile.getProjectRelativePath(),
-        source.scalaProject.underlying)
+        source.scalaProject)
 
     assertTrue(results.isSuccess)
     val resultOccurrences = results.get.filter( x => interestingNames.contains(x.word) )
@@ -58,16 +61,18 @@ class IndexTest {
 
   @Test def deleteOccurrences() {
 
-    val index = new TestIndex(INDEX_DIR)
-    val indexer = new SourceIndexer(index)
+    val config = new TestIndex with SourceIndexer {
+      override val base = INDEX_DIR
+    }
+
     val source = scalaCompilationUnit(mkPath("org","example","ScalaClass.scala"))
-    indexer.indexScalaFile(source)
+    config.indexScalaFile(source)
 
-    index.removeOccurrencesFromFile(source.workspaceFile.getProjectRelativePath(), source.scalaProject.underlying)
+    config.removeOccurrencesFromFile(source.workspaceFile.getProjectRelativePath(), source.scalaProject)
 
-    val results = index.occurrencesInFile(
+    val results = config.occurrencesInFile(
         source.workspaceFile.getProjectRelativePath(),
-        source.scalaProject.underlying)
+        source.scalaProject)
 
     assertTrue(results.isSuccess)
     assertEquals("Index should not contain any occurrence in file", 0, results.get.size)
@@ -75,32 +80,32 @@ class IndexTest {
   }
 
   @Test def ioExceptionsByLuceneAreCaughtWhenAddingOccurrences() {
-    val index = mockedWriterIndex(new IOException)
-    val r = index.addOccurrences(Nil, project.underlying)
+    val index = mockedWriterConfig(new IOException)
+    val r = index.addOccurrences(Nil, project)
     failWithExceptionOfKind[IOException](r)
   }
 
   @Test def ioExceptionsByLuceneAreCaughtWhenRemovingOccurrences() {
-    val index = mockedWriterIndex(new IOException)
-    val r = index.removeOccurrencesFromFile(anonymousPath, project.underlying)
+    val index = mockedWriterConfig(new IOException)
+    val r = index.removeOccurrencesFromFile(anonymousPath, project)
     failWithExceptionOfKind[IOException](r)
   }
 
   @Test def ioExceptionsByLuceneAreCaughtWhenSearchingForOccurrences() {
-    val index = mockedReaderIndex
-    val r = index.occurrencesInFile(anonymousPath, project.underlying)
+    val index = mockedReaderConfig
+    val r = index.occurrencesInFile(anonymousPath, project)
     failWithExceptionOfKind[IOException](r)
   }
 
   @Test def corruptIndexExceptionByLuceneAreCaughtWhenAddingOccurrences() {
-    val index = mockedWriterIndex(new CorruptIndexException(""))
-    val r = index.addOccurrences(Nil, project.underlying)
+    val index = mockedWriterConfig(new CorruptIndexException(""))
+    val r = index.addOccurrences(Nil, project)
     failWithExceptionOfKind[CorruptIndexException](r)
   }
 
   @Test def corruptIndexExceptionByLuceneAreCaughtWhenRemovingOccurrences() {
-    val index = mockedWriterIndex(new CorruptIndexException(""))
-    val r = index.removeOccurrencesFromFile(anonymousPath, project.underlying)
+    val index = mockedWriterConfig(new CorruptIndexException(""))
+    val r = index.removeOccurrencesFromFile(anonymousPath, project)
     failWithExceptionOfKind[CorruptIndexException](r)
   }
 
@@ -111,9 +116,13 @@ class IndexTest {
     // been recorded in files that no longer exists
     val source = scalaCompilationUnit(mkPath("org","example","DoesNotExist.scala"))
     val occurrence = Occurrence("", source, 0, Reference)
-    val index = new TestIndex(INDEX_DIR)
-    index.addOccurrences(Seq(occurrence), project.underlying)
-    val s = index.occurrencesInFile(new Path("org/example/DoesNotExist.scala"), project.underlying)
+
+    val index = new TestIndex { 
+      override val base = INDEX_DIR
+    }
+
+    index.addOccurrences(Seq(occurrence), project)
+    val s = index.occurrencesInFile(new Path("org/example/DoesNotExist.scala"), project)
     assertTrue(s.isSuccess)
     assertTrue(s.get.isEmpty)
   }
@@ -135,10 +144,13 @@ object LuceneIndexTest extends TestProjectSetup("lucene_index_test_project", bun
     }
   }
 
-  val INDEX_DIR = new File(mkPath("target","lucene-index-test"))
+  val INDEX_DIR = new Path(mkPath("target","lucene-index-test"))
 
-  def mockedWriterIndex(ex: Exception) = new TestIndex(INDEX_DIR) {
-    override def doWithWriter(project: IProject)(f: IndexWriter => Unit): Try[Unit] = {
+  def mockedWriterConfig(ex: Exception) = new TestIndex with SourceIndexer {
+
+    override val base = INDEX_DIR
+
+    override def doWithWriter(project: ScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
       val writer = mock(classOf[IndexWriter])
 
       when(writer.deleteDocuments(
@@ -151,8 +163,11 @@ object LuceneIndexTest extends TestProjectSetup("lucene_index_test_project", bun
     }
   }
 
-  def mockedReaderIndex = new TestIndex(INDEX_DIR) {
-    override def withSearcher[A](project: IProject)(f: IndexSearcher => A): Try[A] = {
+  def mockedReaderConfig = new TestIndex with SourceIndexer {
+
+    override val base = INDEX_DIR
+
+    override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
       val searcher = mock(classOf[IndexSearcher])
       when(searcher.search(
           org.mockito.Matchers.argThat(mocks.args.anyInstance[BooleanQuery]),
