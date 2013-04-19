@@ -16,4 +16,15 @@ object Util extends HasLogger {
     ScalaSourceFile.createFromPath(path)
   }
 
+  /**
+   * Convenient way to cast objects. This makes it less painful to use the
+   * Eclipse API's.
+   */
+  def tryCastTo[B : Manifest](x: Any): Option[B] = {
+    x match {
+      case x: B => Some(x)
+      case _ => None
+    }
+  }
+
 }

@@ -2,14 +2,12 @@ package org.scala.tools.eclipse.search.indexing
 
 import java.io.File
 import java.io.IOException
-
 import scala.Array.fallbackCanBuildFrom
 import scala.collection.JavaConverters.asJavaIterableConverter
 import scala.tools.eclipse.logging.HasLogger
 import scala.util.Try
 import scala.util.control.{Exception => Ex}
 import scala.util.control.Exception.Catch
-
 import org.apache.lucene.analysis.core.SimpleAnalyzer
 import org.apache.lucene.document.Document
 import org.apache.lucene.document.Field
@@ -30,12 +28,13 @@ import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.SearchPlugin
 import org.scala.tools.eclipse.search.Util
 import org.scala.tools.eclipse.search.using
-
 import LuceneFields.OCCURRENCE_KIND
 import LuceneFields.OFFSET
 import LuceneFields.PATH
 import LuceneFields.PROJECT_NAME
 import LuceneFields.WORD
+import org.eclipse.core.resources.IFile
+import scala.tools.eclipse.ScalaProject
 
 /**
  * A Lucene based index of all occurrences of Scala entities recorded in the workspace.
@@ -51,9 +50,44 @@ import LuceneFields.WORD
  * This class assumes that the resources passed to the different methods exist and, in
  * the case of a IProject, it's open.
  *
- * This class is thread-safe.
+ * This trait is thread-safe.
  */
-class Index(indicesRoot: File) extends HasLogger {
+trait Index extends HasLogger {
+
+  val base: IPath
+
+  def location(project: IProject): IPath = {
+    base.append(project.getName())
+  }
+
+  /**
+   * Checks if the `file` exists and is a type we know how to index.
+   */
+  def isIndexable(file: IFile): Boolean = {
+    // TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001616
+    Option(file).filter(_.exists).map( _.getFileExtension() == "scala").getOrElse(false)
+  }
+
+  def indexExists(project: IProject): Boolean = {
+    location(project).toFile.exists
+  }
+
+  def deleteIndex(project: IProject): Try[Boolean] = {
+
+    def deleteRec(f: File): Boolean = {
+      if (f.isDirectory()) {
+        val children = f.listFiles
+        children.foreach(deleteRec)
+      }
+      f.delete
+    }
+
+    Try(deleteRec(location(project).toFile)).recover {
+      case t: Throwable =>
+        logger.debug(s"Exception while deleting index for project `${project.getName}`", t)
+        false
+    }
+  }
 
   // internal errors, users shouldn't worry about these
   protected trait ConversionError
@@ -78,9 +112,9 @@ class Index(indicesRoot: File) extends HasLogger {
    * CorruptIndexException - If the Index somehow has become corrupted.
    *
    */
-  def addOccurrences(occurrences: Seq[Occurrence], project: IProject): Try[Unit] = {
+  def addOccurrences(occurrences: Seq[Occurrence], project: ScalaProject): Try[Unit] = {
     doWithWriter(project) { writer =>
-      val docs = occurrences.map( toDocument(project, _) )
+      val docs = occurrences.map( toDocument(project.underlying, _) )
       writer.addDocuments(docs.toIterable.asJava)
     }
   }
@@ -95,11 +129,11 @@ class Index(indicesRoot: File) extends HasLogger {
    *
    * CorruptIndexException - If the Index somehow has become corrupted.
    */
-  def removeOccurrencesFromFile(path: IPath, project: IProject): Try[Unit] = {
+  def removeOccurrencesFromFile(path: IPath, project: ScalaProject): Try[Unit] = {
     doWithWriter(project) { writer =>
       val query = new BooleanQuery()
       query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
-      query.add(new TermQuery(Terms.projectTerm(project)), BooleanClause.Occur.MUST)
+      query.add(new TermQuery(Terms.projectTerm(project.underlying)), BooleanClause.Occur.MUST)
       writer.deleteDocuments(query)
     }
   }
@@ -113,8 +147,8 @@ class Index(indicesRoot: File) extends HasLogger {
    * It might return Failure with other exceptions depending on which methods
    * on IndexWriter `f` is using.
    */
-  protected def doWithWriter(project: IProject)(f: IndexWriter => Unit): Try[Unit] = {
-    val loc = SearchPlugin.plugin.get.indexLocationForProject(project)
+  protected def doWithWriter(project: ScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
+    val loc = location(project.underlying).toFile()
     using(FSDirectory.open(loc), handlers = IOToTry[Unit]) { dir =>
       using(new IndexWriter(dir, config), handlers = IOToTry[Unit]) { writer =>
         Try(f(writer))
@@ -131,8 +165,8 @@ class Index(indicesRoot: File) extends HasLogger {
    * It might return Failure with other exceptions depending on which methods
    * on IndexSearcher `f` is using.
    */
-  protected def withSearcher[A](project: IProject)(f: IndexSearcher => A): Try[A] = {
-    val loc = SearchPlugin.plugin.get.indexLocationForProject(project)
+  protected def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+    val loc = location(project.underlying).toFile()
     using(FSDirectory.open(loc), handlers = IOToTry[A]) { dir =>
       using(DirectoryReader.open(dir), handlers = IOToTry[A]) { reader =>
         val searcher = new IndexSearcher(reader)

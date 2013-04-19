@@ -14,7 +14,9 @@ import java.io.IOException
 /**
  * Indexes Scala sources and add all occurrences to the `index`.
  */
-class SourceIndexer(index: Index) extends HasLogger {
+trait SourceIndexer extends HasLogger {
+
+  this: Index =>
 
   import SourceIndexer._
 
@@ -32,9 +34,8 @@ class SourceIndexer(index: Index) extends HasLogger {
    *
    */
   def indexProject(proj: ScalaProject): Try[Unit] = {
-    // Index all of the files in the project. If one file fails, stop indexing the rest.
 
-    // TODO: We want to delete the entire index, if one exists, before indexing.
+    deleteIndex(proj.underlying)
 
     var blockingFailure: Option[Try[Unit]] = None
     var ioFailures: Seq[IFile] = Nil
@@ -80,7 +81,7 @@ class SourceIndexer(index: Index) extends HasLogger {
   def indexIFile(file: IFile): Try[Unit] = {
     val success: Try[Unit] = Success(())
 
-    if (SearchPlugin.isIndexable(file)) {
+    if (isIndexable(file)) {
       scalaSourceFileFromIFile(file).fold {
         // TODO: We couldn't convert it to a Scala file for some reason. What to do?
         success
@@ -113,9 +114,9 @@ class SourceIndexer(index: Index) extends HasLogger {
     logger.debug(s"Indexing document: ${sf.file.path}")
 
     for {
-      _ <- index.removeOccurrencesFromFile(sf.workspaceFile.getProjectRelativePath(), sf.scalaProject.underlying)
+      _ <- removeOccurrencesFromFile(sf.workspaceFile.getProjectRelativePath(), sf.scalaProject)
       occurrences <- OccurrenceCollector.findOccurrences(sf)
-      _ <- index.addOccurrences(occurrences, sf.getUnderlyingResource().getProject())
+      _ <- addOccurrences(occurrences, sf.scalaProject)
     } yield Success(())
   }
 
