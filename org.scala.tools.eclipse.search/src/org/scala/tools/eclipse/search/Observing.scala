@@ -5,7 +5,7 @@ import org.eclipse.core.resources.ResourcesPlugin
 
 class Observing(listener: IResourceChangeListener) {
 
-  def stop: Unit = {
+  def stop(): Unit = {
     ResourcesPlugin.getWorkspace().removeResourceChangeListener(listener)
   }
 

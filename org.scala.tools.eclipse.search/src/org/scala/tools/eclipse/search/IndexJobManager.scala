@@ -17,37 +17,33 @@ import org.eclipse.core.resources.ResourcesPlugin
  * ProjectChangeObserver to keep track of Resource Events related to
  * projects.
  */
-trait IndexJobManager extends Lifecycle with HasLogger {
-
-  this: Index with SourceIndexer =>
-
+class IndexJobManager(index: Index with SourceIndexer) extends Lifecycle with HasLogger {
   private val lock = new Object
 
-  @volatile var observer: Observing = _
+  @volatile private var observer: Observing = _
 
   // Potentially changed by several threads. This class and the ProjectChangeObserver
   private val indexingJobs: Map[IProject, ProjectIndexJob] =
     new TrieMap[IProject, ProjectIndexJob]
 
-  abstract override def startup() = {
-    super.startup()
+  override def startup() = {
     observer = ProjectChangeObserver(
       onOpen = startIndexing(_),
       onNewScalaProject = startIndexing(_),
       onClose = stopIndexing(_),
       onDelete = project => {
         stopIndexing(project)
-        val d = deleteIndex(project)
+        val d = index.deleteIndex(project)
         if(!d.toOption.getOrElse(false)) {
           logger.debug(s"Failed to delete index for ${project.getName}")
         }
       })
   }
 
-  abstract override def shutdown() = {
-    observer.stop
+  override def shutdown() = {
+    observer.stop()
+    observer = null
     indexingJobs.keys.foreach(stopIndexing)
-    super.shutdown()
   }
 
   def startIndexing(project: IProject): Unit = lock.synchronized {
@@ -80,7 +76,7 @@ trait IndexJobManager extends Lifecycle with HasLogger {
     }
 
     ScalaPlugin.plugin.asScalaProject(project).map { sp =>
-      ProjectIndexJob(this, sp, 5000, onStopped)
+      ProjectIndexJob(index, sp, 5000, onStopped)
     }
   }
 

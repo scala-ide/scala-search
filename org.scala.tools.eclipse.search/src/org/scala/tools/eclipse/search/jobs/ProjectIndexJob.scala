@@ -29,7 +29,7 @@ import org.scala.tools.eclipse.search.Observing
  * needs to be re-indexed.
  */
 class ProjectIndexJob private (
-  config: Index with SourceIndexer,
+  index: Index with SourceIndexer,
   project: ScalaProject,
   interval: Long,
   onStopped: (ProjectIndexJob) => Unit = _ => ()
@@ -44,13 +44,13 @@ class ProjectIndexJob private (
   private val changedResources: BlockingQueue[(IFile, FileEvent)] = new LinkedBlockingQueue[(IFile, FileEvent)]
 
   private val changed = (f: IFile) => {
-    if (config.isIndexable(f)) {
+    if (index.isIndexable(f)) {
       changedResources.put(f, Changed)
     }
   }
 
   private val added = (f: IFile) => {
-    if (config.isIndexable(f)) {
+    if (index.isIndexable(f)) {
       changedResources.put(f, Added)
     }
   }
@@ -81,20 +81,20 @@ class ProjectIndexJob private (
     val shouldIndex = for {
       proj <- Option(project)
     } yield {
-      !config.indexExists(proj.underlying)
+      !index.indexExists(proj.underlying)
     }
 
     if (shouldIndex.getOrElse(false)) {
-      config.indexProject(project).recover(handlers)
+      index.indexProject(project).recover(handlers)
     }
 
     while( !changedResources.isEmpty && !monitor.isCanceled() && projectIsOpenAndExists) {
       val (file, changed) = changedResources.poll()
       monitor.subTask(file.getName())
       changed match {
-        case Changed => config.indexIFile(file).recover(handlers)
-        case Added   => config.indexIFile(file).recover(handlers)
-        case Removed => config.removeOccurrencesFromFile(file.getProjectRelativePath(), project).recover(handlers)
+        case Changed => index.indexIFile(file).recover(handlers)
+        case Added   => index.indexIFile(file).recover(handlers)
+        case Removed => index.removeOccurrencesFromFile(file.getProjectRelativePath(), project).recover(handlers)
       }
       monitor.worked(1)
     }
@@ -121,7 +121,7 @@ class ProjectIndexJob private (
   private def removeIndexAndRestart = {
     logger.debug(s"The index was broken so we delete it and re-index the project ${project.underlying.getName}")
     cancel() // Stop the current 'run' of the thread.
-    config.deleteIndex(project.underlying)
+    index.deleteIndex(project.underlying)
     schedule(interval)
   }
 
