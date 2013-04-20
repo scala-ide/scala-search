@@ -21,8 +21,6 @@ package org.scala.tools.eclipse.search
  * }}}
  */
 trait Lifecycle {
-
-  def startup(): Unit = ()
-  def shutdown(): Unit = ()
-
+  def startup(): Unit
+  def shutdown(): Unit
 }
