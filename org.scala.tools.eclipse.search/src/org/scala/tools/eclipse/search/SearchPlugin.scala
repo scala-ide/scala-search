@@ -18,21 +18,22 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
 
   private final val INDEX_DIR_NAME = "lucene-indices"
 
-  @volatile private var config: Index with SourceIndexer with IndexJobManager with Lifecycle = _
+  @volatile private var indexManager: IndexJobManager = _
 
   override def start(context: BundleContext) {
     super.start(context)
 
-    config = new Index with SourceIndexer with IndexJobManager with Lifecycle {
+    val index = new Index with SourceIndexer {
       override val base = getStateLocation().append(INDEX_DIR_NAME)
     }
-    config.startup()
+    indexManager = new IndexJobManager(index)
+    indexManager.startup()
 
     val root = ResourcesPlugin.getWorkspace().getRoot()
 
     root.getProjects().map(Option.apply).flatten.foreach { proj =>
       ScalaPlugin.plugin.asScalaProject(proj).foreach { sp =>
-        config.startIndexing(sp.underlying)
+        indexManager.startIndexing(sp.underlying)
       }
     }
 
@@ -40,8 +41,8 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
 
   override def stop(context: BundleContext) {
     super.stop(context)
-    config.shutdown()
-    config = null
+    indexManager.shutdown()
+    indexManager = null
   }
 
 }

@@ -19,20 +19,22 @@ class IndexJobManagerTest {
   import SDTTestUtils._
   import IndexJobManagerTest._
 
-  var config: Index with SourceIndexer with IndexJobManager = _
+  @volatile var index: Index with SourceIndexer = _
+  @volatile var indexManager: IndexJobManager = _
 
   @Before
   def setup {
-    config = new Index with SourceIndexer with IndexJobManager with Lifecycle {
+    index = new Index with SourceIndexer {
       override val base = new Path(mkPath("target","index-job-manager-test"))
     }
-    config.startup()
+    indexManager = new IndexJobManager(index) 
+    indexManager.startup()
   }
 
   @After
   def teardown {
-    config.shutdown()
-    config = null
+    indexManager.shutdown()
+    indexManager = null
   }
 
   @Test
@@ -41,25 +43,25 @@ class IndexJobManagerTest {
     assertTrue(project.underlying.isOpen())
 
     // Event
-    config.startIndexing(project.underlying)
+    indexManager.startIndexing(project.underlying)
 
     // Result
-    assertTrue(config.isIndexing(project.underlying))
+    assertTrue(indexManager.isIndexing(project.underlying))
   }
 
   @Test
   def canProgramaticallyStopAnIndexingJob() {
     // Precondition
     assertTrue(project.underlying.isOpen())
-    assertFalse(config.isIndexing(project.underlying))
-    config.startIndexing(project.underlying)
-    assertTrue(config.isIndexing(project.underlying))
+    assertFalse(indexManager.isIndexing(project.underlying))
+    indexManager.startIndexing(project.underlying)
+    assertTrue(indexManager.isIndexing(project.underlying))
 
     // Event
-    config.stopIndexing(project.underlying)
+    indexManager.stopIndexing(project.underlying)
 
     // Result
-    assertFalse(config.isIndexing(project.underlying))
+    assertFalse(indexManager.isIndexing(project.underlying))
   }
 
   @Test
@@ -73,7 +75,7 @@ class IndexJobManagerTest {
 
     // preconditions
     assertTrue(project.underlying.isOpen())
-    assertFalse(config.isIndexing(project.underlying))
+    assertFalse(indexManager.isIndexing(project.underlying))
 
     // event
     project.underlying.close(monitor)
@@ -81,7 +83,7 @@ class IndexJobManagerTest {
     latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // reaction
-    assertTrue(config.isIndexing(project.underlying))
+    assertTrue(indexManager.isIndexing(project.underlying))
     observer.stop
   }
 
@@ -101,7 +103,7 @@ class IndexJobManagerTest {
     latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // reaction
-    assertTrue(config.isIndexing(p.underlying))
+    assertTrue(indexManager.isIndexing(p.underlying))
 
     observer.stop
   }
@@ -117,8 +119,8 @@ class IndexJobManagerTest {
 
     // precondition
     assertTrue(project.underlying.isOpen())
-    config.startIndexing(project.underlying)
-    assertTrue(config.isIndexing(project.underlying))
+    indexManager.startIndexing(project.underlying)
+    assertTrue(indexManager.isIndexing(project.underlying))
 
     // event
     project.underlying.close(monitor)
@@ -126,7 +128,7 @@ class IndexJobManagerTest {
 
     // reaction
     assertFalse(project.underlying.isOpen())
-    assertFalse(config.isIndexing(project.underlying))
+    assertFalse(indexManager.isIndexing(project.underlying))
     observer.stop
   }
 
@@ -152,14 +154,14 @@ class IndexJobManagerTest {
     createdLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // preconditions
-    assertTrue(config.isIndexing(p.underlying))
+    assertTrue(indexManager.isIndexing(p.underlying))
 
     // event
     p.underlying.delete(true, monitor)
     deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // expected
-    assertFalse(config.isIndexing(p.underlying))
+    assertFalse(indexManager.isIndexing(p.underlying))
     observer.stop
   }
 
@@ -199,16 +201,16 @@ class IndexJobManagerTest {
     // has been indexed. Instead until the index has been created on disc, as
     // we know that will happen once it has indexed the file. We wait no longer
     // than 10 seconds.
-    SDTTestUtils.waitUntil(10000)(config.location(p.underlying).toFile.exists)
+    SDTTestUtils.waitUntil(10000)(index.location(p.underlying).toFile.exists)
 
-    assertTrue(config.location(p.underlying).toFile.exists)
+    assertTrue(index.location(p.underlying).toFile.exists)
 
     // event
     p.underlying.delete(true, monitor)
     deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // expected
-    assertFalse(config.location(p.underlying).toFile.exists)
+    assertFalse(index.location(p.underlying).toFile.exists)
     observer.stop
   }
 }
