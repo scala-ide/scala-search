@@ -74,3 +74,4 @@ class SearchPresentationCompilerTest {
 object SearchPresentationCompilerTest
   extends TestProjectSetup("SearchPresentationCompilerTest", bundleName= "org.scala.tools.eclipse.search.tests")
      with TestUtil
+

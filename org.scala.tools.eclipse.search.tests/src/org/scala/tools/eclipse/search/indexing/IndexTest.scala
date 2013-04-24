@@ -19,6 +19,7 @@ import org.apache.lucene.index.IndexWriter
 import org.scala.tools.eclipse.search.TestUtil
 import scala.collection.JavaConverters.asJavaIterableConverter
 import scala.tools.eclipse.ScalaProject
+import scala.tools.eclipse.testsetup.SDTTestUtils
 
 /**
  * Tests that the correct things are stored in the LuceneIndex. We shouldn't
@@ -28,6 +29,10 @@ import scala.tools.eclipse.ScalaProject
 class IndexTest {
 
   import LuceneIndexTest._
+
+  /**
+   * Tests index adding/removing
+   */
 
   @Test def storeAndRetrieve() {
 
@@ -79,6 +84,10 @@ class IndexTest {
 
   }
 
+  /**
+   * Tests exceptional states
+   */
+
   @Test def ioExceptionsByLuceneAreCaughtWhenAddingOccurrences() {
     val index = mockedWriterConfig(new IOException)
     val r = index.addOccurrences(Nil, project)
@@ -117,7 +126,7 @@ class IndexTest {
     val source = scalaCompilationUnit(mkPath("org","example","DoesNotExist.scala"))
     val occurrence = Occurrence("", source, 0, Reference)
 
-    val index = new TestIndex { 
+    val index = new TestIndex {
       override val base = INDEX_DIR
     }
 
@@ -127,12 +136,82 @@ class IndexTest {
     assertTrue(s.get.isEmpty)
   }
 
+  /**
+   * Tests searching
+   */
+
+  @Test def canFindPotentialOccurrencesInProject {
+    val config = new Index with SourceIndexer {
+      override val base = INDEX_DIR
+    }
+
+    config.indexProject(projectA)
+
+    val (results, failures) = config.findOccurrences("foo", Set(projectA))
+    assertEquals(1, results.size)
+    assertEquals(0, failures.size)
+  }
+
+  @Test def canFindPotentialOccurrencesInProjectClosure {
+    val config = new Index with SourceIndexer {
+      override val base = INDEX_DIR
+    }
+
+    config.indexProject(projectA)
+    config.indexProject(projectB)
+
+    val (results, failures) = config.findOccurrences("foo", Set(projectA, projectB))
+    assertEquals(2, results.size)
+  }
+
+  @Test def reportsErrorWhenSearching {
+
+    val config = new Index {
+      override val base = INDEX_DIR
+      override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+        Failure(new CorruptIndexException(""))
+      }
+    }
+
+    val (results, failures) = config.findOccurrences("foo", Set(projectA))
+    assertEquals(0, results.size)
+    assertEquals(1, failures.size)
+    assertEquals(config.BrokenIndex(projectA), failures.head)
+
+  }
+
+  @Test def oneProjectTestFailureDoesntAffectTheOthers {
+    // Test that you can get search results for one project even though
+    // searching in another project failed
+    val config = new Index with SourceIndexer {
+      override val base = INDEX_DIR
+      override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+        if (project.underlying.getName == projectA.underlying.getName) {
+          Failure(new CorruptIndexException(""))
+        }
+        else super.withSearcher(project)(f)
+      }
+    }
+
+    config.indexProject(projectA)
+    config.indexProject(projectB)
+
+    val (results, failures) = config.findOccurrences("foo", Set(projectA, projectB))
+    assertEquals(1, results.size)
+    assertEquals(1, failures.size)
+    assertEquals(config.BrokenIndex(projectA), failures.head)
+
+  }
+
 }
 
 object LuceneIndexTest extends TestProjectSetup("lucene_index_test_project", bundleName= "org.scala.tools.eclipse.search.tests")
                           with TestUtil {
 
   import scala.collection.JavaConverters.asJavaIterableConverter
+
+  val projectA = SDTTestUtils.setupProject("IndexTest-ProjectA", "org.scala.tools.eclipse.search.tests")
+  val projectB = SDTTestUtils.setupProject("IndexTest-ProjectB", "org.scala.tools.eclipse.search.tests")
 
   def anonymousPath = new Path(".")
 

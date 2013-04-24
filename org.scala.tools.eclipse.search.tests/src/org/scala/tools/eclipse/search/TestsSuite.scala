@@ -18,5 +18,6 @@ import org.scala.tools.eclipse.search.searching._
   ,classOf[ProjectIndexJobTest]
   ,classOf[ProjectChangeObserverTest]
   ,classOf[SearchPresentationCompilerTest]
+  ,classOf[ProjectFinderTest]
 ))
 class TestsSuite {}
