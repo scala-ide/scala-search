@@ -35,6 +35,8 @@ import LuceneFields.PROJECT_NAME
 import LuceneFields.WORD
 import org.eclipse.core.resources.IFile
 import scala.tools.eclipse.ScalaProject
+import scala.util.Success
+import scala.util.Failure
 
 /**
  * A Lucene based index of all occurrences of Scala entities recorded in the workspace.
@@ -94,6 +96,9 @@ trait Index extends HasLogger {
   protected case class MissingFile(path: String, project: String) extends ConversionError
   protected case class InvalidDocument(doc: Document) extends ConversionError
 
+  trait SearchFailure
+  case class BrokenIndex(project: ScalaProject) extends SearchFailure
+
   protected def config = {
     val analyzer = new SimpleAnalyzer(Version.LUCENE_41)
     new IndexWriterConfig(Version.LUCENE_41, analyzer)
@@ -101,6 +106,39 @@ trait Index extends HasLogger {
 
   //  TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001661-make-max-number-of-matches-configurable
   protected val MAX_POTENTIAL_MATCHES = 100000
+
+
+  /**
+   * Search the relevant project indices for all occurrences of the given word.
+   *
+   * This will return a sequence of all the occurrences it found in the index and a
+   * sequence containing information about failed searches, if any. A search can fail
+   * if the Index in inaccessible or broken.
+   */
+  def findOccurrences(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+    // Query each project index in parallel.
+    val indexSearchResults = projects.par.map { project =>
+      val resultsForProject = withSearcher(project){ searcher =>
+        val query = new BooleanQuery()
+        query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
+        for {
+          hit        <- searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
+          occurrence <- fromDocument(searcher.doc(hit.doc)).right.toOption
+        } yield occurrence
+      }
+      (project, resultsForProject)
+    }
+
+    val initial: (Seq[Occurrence], Seq[SearchFailure]) = (Nil, Nil)
+
+    indexSearchResults.foldLeft(initial) { (acc, t: (ScalaProject,Try[Seq[Occurrence]])) =>
+      val (occurrences, failures) = acc
+      t match {
+        case (_, Success(xs)) => (occurrences ++ xs, failures)
+        case (p, Failure(_))  => (occurrences, BrokenIndex(p) +: failures)
+      }
+    }
+  }
 
   /**
    * Tries to add all occurrences found in a given file to the index. This method can
@@ -193,6 +231,10 @@ trait Index extends HasLogger {
 
     def pathTerm(path: IPath) = {
       new Term(LuceneFields.PATH, path.toPortableString())
+    }
+
+    def exactWord(word: String) = {
+      new Term(LuceneFields.WORD, word)
     }
   }
 
