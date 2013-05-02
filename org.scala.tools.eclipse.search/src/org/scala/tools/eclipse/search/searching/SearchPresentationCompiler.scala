@@ -42,6 +42,18 @@ object SearchPresentationCompiler extends HasLogger {
     }
 
     /**
+     * Import a symbol from one presentation compiler into another. This is required
+     * before you can compare two symbols originating from different presentation
+     * compiler instance.
+     */
+    def importSymbol(spc: SearchPresentationCompiler)(s: spc.pc.Symbol): pc.Symbol = {
+      // https://github.com/scala/scala/blob/master/src/reflect/scala/reflect/api/Importers.scala
+      val importer0 = pc.mkImporter(spc.pc)
+      val importer = importer0.asInstanceOf[pc.Importer { val from: spc.pc.type }]
+      importer.importSymbol(s)
+    }
+
+    /**
      * Check is the symbol `s1` and `s2` are describing the same method. We consider two
      * methods to be the same if
      *
