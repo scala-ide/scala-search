@@ -41,5 +41,48 @@ object SearchPresentationCompiler extends HasLogger {
       }
     }
 
+    /**
+     * Import a symbol from one presentation compiler into another. This is required
+     * before you can compare two symbols originating from different presentation
+     * compiler instance.
+     */
+    def importSymbol(spc: SearchPresentationCompiler)(s: spc.pc.Symbol): pc.Symbol = {
+      // https://github.com/scala/scala/blob/master/src/reflect/scala/reflect/api/Importers.scala
+      val importer0 = pc.mkImporter(spc.pc)
+      val importer = importer0.asInstanceOf[pc.Importer { val from: spc.pc.type }]
+      importer.importSymbol(s)
+    }
+
+    /**
+     * Check is the symbol `s1` and `s2` are describing the same method. We consider two
+     * methods to be the same if
+     *
+     *  - Both `s1` and `s2` are actual methods
+     *  - They have the same name
+     *  - s1.owner and s2.owner are in the same hierarchy
+     *  - They have the same type signature or one is overriding the other
+     */
+    def isSameMethod(s1: pc.Symbol, s2: pc.Symbol): Boolean = {
+      pc.askOption { () =>
+
+        lazy val isInHiearchy = s1.owner.isSubClass(s2.owner) || s2.owner.isSubClass(s1.owner)
+        lazy val hasSameName = s1.nameString == s2.nameString
+        lazy val hasSameTypeSignature = s1.typeSignature == s2.typeSignature
+
+        // If s1 and s2 are defined in the same class the owner will be the same
+        // thus s1.overriddenSymbol(S2.owner) will actually return s1.
+        lazy val isOverridden = s1.owner != s2.owner &&
+                                (s1.overriddenSymbol(s2.owner) != pc.NoSymbol ||
+                                s2.overriddenSymbol(s1.owner) != pc.NoSymbol)
+
+        s1.isMethod &&
+        s2.isMethod &&
+        hasSameName &&
+        isInHiearchy &&
+        (hasSameTypeSignature || isOverridden)
+
+      } getOrElse false
+    }
+
   }
 }
