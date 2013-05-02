@@ -49,12 +49,96 @@ class SearchPresentationCompilerTest {
     } expectedSymbolNamed(None)
   }
 
+  @Test
+  def isSameMethod_withSameSymbol {
+    document {"""
+      class C {
+        def re|ve|rse(x: String) = x.reverse
+      }
+    """} isSameMethod(true)
+  }
+
+  @Test
+  def isSameMethod_referenceAndDeclaration {
+    document {"""
+      class A {
+        def fo|o(x: String) = x
+        def bar(x: String) = fo|o(x)
+      }
+    """} isSameMethod(true)
+  }
+
+  @Test
+  def isSameMethod_falseForDifferentMethods {
+    document {"""
+      class A {
+        def ad|dStrings(x: String, y: String) = x + y
+        def ad|dInts(x: Int, y: Int) = x + y
+      }
+    """} isSameMethod(false)
+  }
+
+  @Test
+  def isSameMethod_overriddenCountsAsSame {
+    document {"""
+      class A {
+        def fo|o(x: String) = x
+      }
+      class B extends A {
+        override def fo|o(x: String) = x
+      }
+    """} isSameMethod(true)
+  }
+
+  @Test
+  def isSameMethod_canDistinguishOverloadedMethods {
+    document {"""
+      class A {
+        def ad|d(x: String, y: String) = x + y
+        def ad|d(x: Int, y: Int) = x + y
+      }
+    """} isSameMethod(false)
+  }
+
+  @Test
+  def isSameMethod_canHandleRenamedMethods {
+    document {"""
+      class C {
+        import C.{ foo => bar }
+        val y = b|ar("hi")
+      }
+      object C {
+        def fo|o(x: String) = x
+      }
+    """} isSameMethod(true)
+  }
+
   private def scalaSourceFile(code: String): ScalaCompilationUnit = {
     val emptyPkg = simulator.createPackage("")
     simulator.createCompilationUnit(emptyPkg, "A.scala", code.stripMargin).asInstanceOf[ScalaCompilationUnit]
   }
 
   private def document(text: String) = new {
+
+    def isSameMethod(expected: Boolean): Unit = {
+      val pos1 :: pos2 :: Nil = {
+        val offset1 = text.indexOf(CaretMarker)
+        val offset2 = text.indexOf(CaretMarker, offset1+1)
+        if (offset1 == -1 || offset2 == -1) fail(s"Could not locate the two caret position markers '${CaretMarker}' in test.")
+        List(offset1,offset2)
+      }
+      val cleanedText = text.filterNot(_ == CaretMarker).mkString
+      val cu = scalaSourceFile(cleanedText)
+      cu.doWithSourceFile { (sf, pc) =>
+        val spc = SearchPresentationCompiler(pc)
+        val isSame = for {
+          s1 <- spc.symbolAt(Location(cu, pos1), sf)
+          s2 <- spc.symbolAt(Location(cu, pos2), sf)
+        } yield spc.isSameMethod(s1,s2)
+        assertEquals(expected, isSame.get)
+      }
+    }
+
     def expectedSymbolNamed(nameOpt: Option[String]): Unit = {
       val caret: Int = {
         val offset = text.indexOf(CaretMarker)
@@ -69,6 +153,7 @@ class SearchPresentationCompilerTest {
       } (fail("Couldn't get Scala source file"))
     }
   }
+
 }
 
 object SearchPresentationCompilerTest
