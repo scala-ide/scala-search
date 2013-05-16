@@ -28,9 +28,21 @@ http://scala-ide.dreamhosters.com/nightly-update-scala-search-scalaide-master-21
 Building
 --------
 
-The build is configured using maven so you build by invoking the following:
+Simply run the ``./build.sh`` script.
 
-    mvn clean package
+The scala-search build is based on
+[plugin-profiles](https://github.com/scala-ide/plugin-profiles) and
+can be built against several versions of the IDE, Eclipse and Scala
+compiler.
+
+Launchin the ``build.sh`` script will exand to the following Maven command:
+
+```
+mvn -Peclipse-indigo,scala-2.10.x,scala-ide-stable clean install
+```
+
+You can choose a different profile for any of the three axis: eclipse
+platform, Scala version and Scala IDE stream.
 
 Running it
 ----------
