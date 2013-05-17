@@ -1,6 +1,7 @@
 package org.scala.tools.eclipse.search.indexing
 
 import scala.tools.eclipse.javaelements.ScalaSourceFile
+import org.scala.tools.eclipse.search.searching.Result
 
 /**
  * Represents the various kinds of occurrences that we deal with
@@ -22,6 +23,7 @@ object LuceneFields {
   val OFFSET          = "offset"
   val OCCURRENCE_KIND = "occurrenceKind"
   val PROJECT_NAME    = "project"
+  val LINE_CONTENT    = "lineContent"
 }
 
 /**
@@ -32,7 +34,21 @@ case class Occurrence(
     word: String,
     file: ScalaSourceFile,
     offset: Int, // char offset from beginning of file
-    occurrenceKind: OccurrenceKind) {
+    occurrenceKind: OccurrenceKind,
+    lineContent: String = "") {
+
+  def toResult: Result =
+    Result(file, word, lineContent,offset)
+
+  override def equals(other: Any) = other match {
+    // Don't compare lineCOntent 
+    case o: Occurrence =>
+      word == o.word &&
+      file == o.file &&
+      offset == o.offset &&
+      occurrenceKind == o.occurrenceKind
+    case _ => false
+  }
 
   override def toString = "%s in %s at char %s %s".format(
       word,

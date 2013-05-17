@@ -176,7 +176,7 @@ class IndexTest {
     val (results, failures) = config.findOccurrences("foo", Set(projectA))
     assertEquals(0, results.size)
     assertEquals(1, failures.size)
-    assertEquals(config.BrokenIndex(projectA), failures.head)
+    assertEquals(BrokenIndex(projectA), failures.head)
 
   }
 
@@ -199,7 +199,7 @@ class IndexTest {
     val (results, failures) = config.findOccurrences("foo", Set(projectA, projectB))
     assertEquals(1, results.size)
     assertEquals(1, failures.size)
-    assertEquals(config.BrokenIndex(projectA), failures.head)
+    assertEquals(BrokenIndex(projectA), failures.head)
 
   }
 

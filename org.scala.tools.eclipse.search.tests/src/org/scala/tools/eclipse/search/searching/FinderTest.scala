@@ -10,7 +10,6 @@ import org.junit.Assert._
 import scala.tools.eclipse.javaelements.ScalaCompilationUnit
 import scala.tools.eclipse.EclipseUserSimulator
 import org.eclipse.core.runtime.NullProgressMonitor
-import org.scala.tools.eclipse.search.searching.SourceCreator
 import java.util.concurrent.CountDownLatch
 import org.scala.tools.eclipse.search.FileChangeObserver
 import org.scala.tools.eclipse.search.LogErrorReporter

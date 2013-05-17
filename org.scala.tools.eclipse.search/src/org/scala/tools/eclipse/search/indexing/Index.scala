@@ -38,6 +38,9 @@ import scala.tools.eclipse.ScalaProject
 import scala.util.Success
 import scala.util.Failure
 
+trait SearchFailure
+case class BrokenIndex(project: ScalaProject) extends SearchFailure
+
 /**
  * A Lucene based index of all occurrences of Scala entities recorded in the workspace.
  *
@@ -95,9 +98,6 @@ trait Index extends HasLogger {
   protected trait ConversionError
   protected case class MissingFile(path: String, project: String) extends ConversionError
   protected case class InvalidDocument(doc: Document) extends ConversionError
-
-  trait SearchFailure
-  case class BrokenIndex(project: ScalaProject) extends SearchFailure
 
   protected def config = {
     val analyzer = new SimpleAnalyzer(Version.LUCENE_41)
@@ -254,6 +254,7 @@ trait Index extends HasLogger {
     persist(PATH, o.file.workspaceFile.getProjectRelativePath().toPortableString())
     persist(OFFSET, o.offset.toString)
     persist(OCCURRENCE_KIND, o.occurrenceKind.toString)
+    persist(LINE_CONTENT, o.lineContent.toString)
     persist(PROJECT_NAME, project.getName)
 
     doc
@@ -274,6 +275,7 @@ trait Index extends HasLogger {
       path           <- Option(doc.get(PATH))
       offset         <- Option(doc.get(OFFSET))
       occurrenceKind <- Option(doc.get(OCCURRENCE_KIND))
+      lineContent    <- Option(doc.get(LINE_CONTENT))
       projectName    <- Option(doc.get(PROJECT_NAME))
     } yield {
       val root = ResourcesPlugin.getWorkspace().getRoot()
@@ -282,7 +284,7 @@ trait Index extends HasLogger {
         ifile          <- Option(project.getFile(Path.fromPortableString(path)))
         file           <- Util.scalaSourceFileFromIFile(ifile)
       } yield {
-        Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind))
+        Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind), lineContent)
       }).fold {
         // The file or project apparently no longer exists. This can happen
         // if the project/file has been deleted/renamed and a search is

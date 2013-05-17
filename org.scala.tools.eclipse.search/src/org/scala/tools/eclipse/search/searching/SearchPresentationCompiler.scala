@@ -44,6 +44,24 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   }
 
   /**
+   * Checks is a symbols is a method or constructor. This is
+   * needed such that we can restrict the FindOccurrenceOfMethod
+   * to only work for methods until the rest of the entities are
+   * suppored.
+   */
+  def isMethod(loc: Location): Boolean = {
+    loc.cu.withSourceFile({ (sf, pc) =>
+      symbolAt(loc, sf) match {
+        case FoundSymbol(symbol) =>
+          pc.askOption { () =>
+            symbol.isMethod || symbol.isConstructor
+          }.getOrElse(false)
+        case _ => false
+      }
+    })(false)
+  }
+
+  /**
    * Get a comparator for a symbol at a given Location. The Comparator can be
    * used to see if symbols at other locations are the same as this symbol.
    */

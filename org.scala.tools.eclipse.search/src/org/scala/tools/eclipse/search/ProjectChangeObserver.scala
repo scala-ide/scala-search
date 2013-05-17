@@ -9,6 +9,7 @@ import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.resources.IResource
 import scala.tools.eclipse.ScalaPlugin
+import scala.tools.eclipse.util.Utils.any2optionable
 
 
 /**
@@ -82,7 +83,7 @@ object ProjectChangeObserver {
             }
           }
           case IResourceChangeEvent.PRE_DELETE => {
-            Util.tryCastTo[IProject](ev.getResource).foreach(onDelete)
+            ev.getResource.asInstanceOfOpt[IProject].foreach(onDelete)
           }
         }
       }
