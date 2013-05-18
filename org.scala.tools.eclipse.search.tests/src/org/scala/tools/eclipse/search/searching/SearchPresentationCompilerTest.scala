@@ -5,7 +5,6 @@ import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.scala.tools.eclipse.search.SourceCreator
 import org.scala.tools.eclipse.search.TestUtil
 import SearchPresentationCompilerTest.Project
 import org.scala.tools.eclipse.search.FileChangeObserver
@@ -16,7 +15,6 @@ import org.junit.Ignore
 class SearchPresentationCompilerTest {
 
   import SearchPresentationCompilerTest._
-  import SearchPresentationCompiler._
 
   private val project = Project("SearchPresentationCompilerTest")
 
@@ -77,6 +75,21 @@ class SearchPresentationCompilerTest {
       class ExampleWithSymbol3 {
         def foo(x: String) = x
         def bar(x: String) = invalid(fo|o(x))
+      }
+    """} expectedTypeError
+  }
+
+  @Test
+  def notTypeableIfAskedForLocationWithTypeErrorClasses {
+    project.create("NotTypeableClassA.scala") {"""
+      class A {
+        def fo|o(x: String) = x
+      }
+    """}
+
+    project.create("NotTypeableClassB.scala") {"""
+      class B {
+        def bar = invalid((new A).fo|o("test"))
       }
     """} expectedTypeError
   }
@@ -152,6 +165,18 @@ class SearchPresentationCompilerTest {
       }
       class B extends A {
         override val fo|o: String = "there"
+      }
+    """} isSameMethod(true)
+  }
+
+  @Test
+  def isSameMethod_overriddenVarCountAsSame {
+    project.create("OverriddenVarCountsAsSame.scala") {"""
+      trait A {
+        def fo|o_=(x: String): Unit
+      }
+      abstract class B extends A {
+        var f|oo: String
       }
     """} isSameMethod(true)
   }

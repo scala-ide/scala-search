@@ -1,13 +1,12 @@
-package org.scala.tools.eclipse.search
+package org.scala.tools.eclipse.search.searching
 
 import scala.tools.eclipse.javaelements.ScalaCompilationUnit
 import scala.tools.eclipse.EclipseUserSimulator
 import org.eclipse.core.runtime.NullProgressMonitor
 import org.junit.Assert._
-import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler._
-import org.scala.tools.eclipse.search.searching.Location
 import org.eclipse.jdt.core.JavaCore
 import org.eclipse.jdt.core.IClasspathEntry
+import scala.Array.canBuildFrom
 
 trait SourceCreator {
 
@@ -17,40 +16,22 @@ trait SourceCreator {
 
     def expectedSymbolNamed(nameOpt: Option[String]): Unit = {
       unit.withSourceFile { (sf, pc) =>
-        val spc = SearchPresentationCompiler(pc)
-        val symbol = spc.symbolAt(Location(unit, markers.head), sf)
-
-        import spc._
-        symbol match {
-          case FoundSymbol(sym) => assertEquals(nameOpt, Some(sym.nameString))
-          case _ => assertEquals(nameOpt, None)
-        }
+        val spc = new SearchPresentationCompiler(pc)
+        assertEquals(nameOpt, spc.nameOfEntityAt(Location(unit, markers.head)))
       } (fail("Couldn't get Scala source file"))
     }
 
     def expectedNoSymbol: Unit = {
       unit.withSourceFile { (sf, pc) =>
-        val spc = SearchPresentationCompiler(pc)
-        val symbol = spc.symbolAt(Location(unit, markers.head), sf)
-
-        import spc._
-        symbol match {
-          case MissingSymbol => assertTrue(true)
-          case x => fail(s"Expected NoSymbol but found ${x}")
-        }
+        val spc = new TestSearchPresentationCompiler(pc)
+        assertTrue(spc.isNoSymbol(Location(unit, markers.head)))
       } (fail("Couldn't get Scala source file"))
     }
 
     def expectedTypeError: Unit = {
       unit.withSourceFile { (sf, pc) =>
-        val spc = SearchPresentationCompiler(pc)
-        val symbol = spc.symbolAt(Location(unit, markers.head), sf)
-
-        import spc._
-        symbol match {
-          case NotTypeable => assertTrue(true)
-          case x => fail(s"Expected NotTypeable but found ${x}")
-        }
+        val spc = new TestSearchPresentationCompiler(pc)
+        assertTrue(spc.isTypeError(Location(unit, markers.head)))
       } (fail("Couldn't get Scala source file"))
     }
 
@@ -62,34 +43,27 @@ trait SourceCreator {
      */
     def isSameMethod(expected: Boolean): Unit = {
       unit.withSourceFile { (sf, pc) =>
-        val spc = SearchPresentationCompiler(pc)
-        import spc._
-        val s1 = spc.symbolAt(Location(unit, markers(0)), sf)
-        val s2 = spc.symbolAt(Location(unit, markers(1)), sf)
-        val isSame = (s1, s2) match {
-          case (FoundSymbol(sym1),FoundSymbol(sym2)) => spc.isSameMethod(sym1,sym2)
-          case (_,_) => false
-        }
-        assertEquals(expected, isSame)
+        val spc = new SearchPresentationCompiler(pc)
+        spc.comparator(Location(unit, markers(0))).map { comparator =>
+          comparator.isSameAs(Location(unit, markers(1))) match {
+            case Same => assertEquals(true, expected)
+            case _ => assertEquals(false, expected)
+          }
+        }.getOrElse(fail("Couldn't get comparator for symbol"))
       }((fail("Couldn't get source file")))
     }
 
-    def isSameMethodAs(other: ScalaDocument, expeced: Boolean = true) = {
-      unit.withSourceFile { (sf1 ,pc1) =>
-        val spc = SearchPresentationCompiler(pc1)
-        other.unit.withSourceFile { (sf2, pc2) =>
-          val spc2 = SearchPresentationCompiler(pc2)
-          val s1 = spc.symbolAt(Location(unit, markers.head), sf1)
-          val s2 = spc2.symbolAt(Location(other.unit, other.markers.head), sf2)
-          val isSame = (s1,s2) match {
-            case (spc.FoundSymbol(sym1),spc2.FoundSymbol(sym2)) => {
-              val imported = spc.importSymbol(spc2)(sym2)
-              spc.isSameMethod(sym1,imported)
-            }
-            case (_,_) => false
+    def isSameMethodAs(other: ScalaDocument, expected: Boolean = true) = {
+      val loc1 = Location(unit, markers.head)
+      val loc2 = Location(other.unit, other.markers.head)
+      unit.withSourceFile { (sf, pc) =>
+        val spc = new SearchPresentationCompiler(pc)
+        spc.comparator(loc1).map { comparator =>
+          comparator.isSameAs(loc2) match {
+            case Same => assertEquals(true, expected)
+            case _ => assertEquals(false, expected)
           }
-          assertEquals(expeced, isSame)
-        }(fail("Couldn't get the other source file"))
+        }.getOrElse(fail("Couldn't get comparator for symbol"))
       }((fail("Couldn't get source file")))
     }
 
@@ -117,6 +91,12 @@ trait SourceCreator {
 
       val newClasspath = entries ++ scalaProject.javaProject.getRawClasspath()
       scalaProject.javaProject.setRawClasspath(newClasspath.toArray, new NullProgressMonitor)
+
+      val d = scalaProject.underlying.getDescription()
+      val refs = scalaProject.underlying.getReferencedProjects() ++ others.map(_.scalaProject.underlying)
+      d.setReferencedProjects(refs.toArray)
+      scalaProject.underlying.setDescription(d, new NullProgressMonitor)
+
     }
 
     def create(name: String)(text: String): ScalaDocument = {
@@ -128,9 +108,6 @@ trait SourceCreator {
         cursors = cursors :+ offset
         offset = text.indexOf(CaretMarker, offset+1)
       }
-
-      if (cursors.isEmpty)
-        fail(s"There has to be atleast one marker '${CaretMarker}' in the source file")
 
       val cleanedText = text.filterNot(_ == CaretMarker).mkString
       val emptyPkg = adhocSimulator.createPackage("")
