@@ -36,8 +36,29 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   def nameOfEntityAt(loc: Location): Option[String] = {
     loc.cu.withSourceFile({ (sf, pc) =>
       symbolAt(loc, sf) match {
+        case FoundSymbol(symbol) => pc.askOption(() => symbol.nameString)
+        case _ => None
+      }
+    })(None)
+  }
+
+  /**
+   * The name of the symbol at the given location and all the other
+   * valid names for that symbol. For example Foo.apply() and Foo() are
+   * both valid names for an invocation of Foo.apply
+   */
+  def possibleNamesOfEntityAt(loc: Location): Option[List[String]] = {
+    loc.cu.withSourceFile({ (sf, pc) =>
+      symbolAt(loc, sf) match {
         case FoundSymbol(symbol) =>
-          pc.askOption(() => symbol.nameString)
+          pc.askOption(() => symbol.nameString).flatMap {
+            case n@"apply" =>
+              // TODO: Should use decodedName #1001723
+              pc.askOption(() => symbol.owner.nameString).map { ownerName =>
+                List(n, ownerName)
+              }
+            case n => Some(List(n))
+          }
         case _ => None
       }
     })(None)

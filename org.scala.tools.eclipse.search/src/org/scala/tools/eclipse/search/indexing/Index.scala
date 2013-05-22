@@ -107,20 +107,29 @@ trait Index extends HasLogger {
   //  TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001661-make-max-number-of-matches-configurable
   protected val MAX_POTENTIAL_MATCHES = 100000
 
+  def findOccurrences(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+    findOccurrences(List(word), projects)
+  }
 
   /**
-   * Search the relevant project indices for all occurrences of the given word.
+   * Search the relevant project indices for all occurrences of the given words.
    *
    * This will return a sequence of all the occurrences it found in the index and a
    * sequence containing information about failed searches, if any. A search can fail
    * if the Index in inaccessible or broken.
    */
-  def findOccurrences(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+  def findOccurrences(words: List[String], projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
     // Query each project index in parallel.
     val indexSearchResults = projects.par.map { project =>
       val resultsForProject = withSearcher(project){ searcher =>
+        // This creates a query that searches occurrences of
+        // any of the given words.
         val query = new BooleanQuery()
-        query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
+        val innerQuery = new BooleanQuery()
+        words.foreach { w =>
+          innerQuery.add(new TermQuery(Terms.exactWord(w)), BooleanClause.Occur.SHOULD)
+        }
+        query.add(innerQuery, BooleanClause.Occur.MUST)
         for {
           hit        <- searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
           occurrence <- fromDocument(searcher.doc(hit.doc)).right.toOption
