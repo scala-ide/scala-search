@@ -10,8 +10,9 @@ import org.scala.tools.eclipse.search.indexing.SearchFailure
 /**
  * Component that provides various methods related to finding Scala entities.
  */
-class Finder(index: Index, reporter: ErrorReporter) extends ProjectFinder with HasLogger {
+class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
 
+  private val finder: ProjectFinder = new ProjectFinder 
   /**
    * Find all occurrences of the entity at the given location.
    *
@@ -28,7 +29,7 @@ class Finder(index: Index, reporter: ErrorReporter) extends ProjectFinder with H
 
     // Find all the Scala projects that are relevant to search in.
     val enclosingProject = location.cu.scalaProject.underlying
-    val all =  projectClosure(enclosingProject)
+    val all =  finder.projectClosure(enclosingProject)
     val allScala = all.map(ScalaPlugin.plugin.asScalaProject(_)).flatten
 
     // Get the symbol under the cursor. Use it to find other occurrences.
