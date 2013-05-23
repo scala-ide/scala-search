@@ -40,9 +40,9 @@ trait Finder extends ProjectFinder
       val spc = new SearchPresentationCompiler(pc)
       for {
         comparator <- spc.comparator(location) onEmpty reportError(s"Couldn't get comparator based on symbol at ${location.offset} in ${sf.file.path}")
-        name <- spc.nameOfEntityAt(location) onEmpty reportError(s"Couldn't get name of symbol at ${location.offset} in ${sf.file.path}")
+        names <- spc.possibleNamesOfEntityAt(location) onEmpty reportError(s"Couldn't get name of symbol at ${location.offset} in ${sf.file.path}")
       } {
-        val (occurrences, failures) = findOccurrences(name, allScala)
+        val (occurrences, failures) = findOccurrences(names, allScala)
         logger.debug(s"Found ${occurrences.size} potential matches")
         failures.foreach(errorHandler)
         occurrences.foreach { occurrence =>

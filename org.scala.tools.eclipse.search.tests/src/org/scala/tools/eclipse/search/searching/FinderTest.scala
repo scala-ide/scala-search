@@ -69,6 +69,43 @@ class FinderTest {
   }
 
   @Test
+  def canFindOccurrencesOfApply = {
+
+    val config = new Index with SourceIndexer with Finder with LogErrorReporter {
+      override val base = INDEX_DIR
+    }
+
+    val project = Project("FinderTest-Apply")
+
+    val latch = new CountDownLatch(2)
+    val observer = FileChangeObserver(project.scalaProject)(onAdded = _ => latch.countDown)
+
+    val sourceA = project.create("A.scala")("""
+      object ObjectA {
+        def a|pply(x: String) = x
+      }
+      object ObjectB {
+        Obje|ctA("test")
+        ObjectA.apply("test")
+      }
+    """)
+
+    latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
+
+    config.indexProject(project.scalaProject)
+
+    @volatile var results = 0
+    config.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
+      results += 1
+    }
+
+    assertEquals(s"Checking references of method foo, Found ${results}", 3, results)
+
+    project.delete
+    observer.stop
+  }
+
+  @Test
   def canFindOccurrencesInDifferentProjects = {
 
     val config = new Index with SourceIndexer with Finder with LogErrorReporter {
