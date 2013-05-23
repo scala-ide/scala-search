@@ -105,7 +105,7 @@ class ProjectIndexJobTest {
 
     val config = mockedSuccessfullIndexerConfigNoReindexing
 
-    when(config.removeOccurrencesFromFile(
+    when(config.index.removeOccurrencesFromFile(
         Matchers.argThat(arg),
         Matchers.eq(project))).thenReturn(Success())
 
@@ -120,7 +120,7 @@ class ProjectIndexJobTest {
     job.schedule()
     latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
-    verify(config).removeOccurrencesFromFile(
+    verify(config.index).removeOccurrencesFromFile(
         Matchers.argThat(arg),
         Matchers.eq(project))
   }
@@ -196,38 +196,46 @@ object ProjectIndexJobTest
 
   val INTERVAL = 500
 
-  class Config extends Index with SourceIndexer {
+  class TestIndex extends Index {
     override val base: IPath = new Path(mkPath("target","project-index-job-test"))
   }
 
+  
   def mockedSuccessfullIndexerConfig = {
-    val config = mock(classOf[Config])
-    when(config.indexProject(project)).thenReturn(Success(()))
-    when(config.indexIFile(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(Success(()))
-    when(config.isIndexable(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(true)
-    when(config.removeOccurrencesFromFile(
+    val index = mock(classOf[TestIndex])
+    when(index.isIndexable(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(true)
+    when(index.removeOccurrencesFromFile(
         Matchers.argThat(mocks.args.anyInstance[IPath]),
         Matchers.argThat(mocks.args.anyInstance[ScalaProject]))).thenReturn(Success(()))
-    config
+    
+    val indexer = mock(classOf[SourceIndexer])
+    when(indexer.index).thenReturn(index)
+    when(indexer.indexProject(project)).thenReturn(Success(()))
+    when(indexer.indexIFile(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(Success(()))
+    
+    indexer
   }
 
   def mockedSuccessfullIndexerConfigReIndexing = {
-    val config = mockedSuccessfullIndexerConfig
-    when(config.indexExists(project.underlying)).thenReturn(false)
-    config
+    val indexer = mockedSuccessfullIndexerConfig
+    when(indexer.index.indexExists(project.underlying)).thenReturn(false)
+    indexer
   }
 
   def mockedSuccessfullIndexerConfigNoReindexing = {
-    val config = mockedSuccessfullIndexerConfig
-    when(config.indexExists(project.underlying)).thenReturn(true)
-    config
+    val indexer = mockedSuccessfullIndexerConfig
+    when(indexer.index.indexExists(project.underlying)).thenReturn(true)
+    indexer
   }
 
   def mockIndexerConfigWithException(ex: Exception) = {
-    val config = mock(classOf[Config])
-    when(config.indexProject(project)).thenReturn(Failure(ex))
-    when(config.deleteIndex(project.underlying)).thenReturn(Success(true))
-    when(config.indexExists(project.underlying)).thenReturn(false)
-    config
+    val index = mock(classOf[TestIndex])
+    when(index.deleteIndex(project.underlying)).thenReturn(Success(true))
+    when(index.indexExists(project.underlying)).thenReturn(false)
+    
+    val indexer = mock(classOf[SourceIndexer])
+    when(indexer.index).thenReturn(index)
+    when(indexer.indexProject(project)).thenReturn(Failure(ex))
+    indexer
   }
 }

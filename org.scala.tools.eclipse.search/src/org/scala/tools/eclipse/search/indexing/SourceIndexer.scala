@@ -14,9 +14,7 @@ import java.io.IOException
 /**
  * Indexes Scala sources and add all occurrences to the `index`.
  */
-trait SourceIndexer extends HasLogger {
-
-  this: Index =>
+class SourceIndexer(val index: Index) extends HasLogger {
 
   import SourceIndexer._
 
@@ -35,7 +33,7 @@ trait SourceIndexer extends HasLogger {
    */
   def indexProject(proj: ScalaProject): Try[Unit] = {
 
-    deleteIndex(proj.underlying)
+    index.deleteIndex(proj.underlying)
 
     var blockingFailure: Option[Try[Unit]] = None
     var ioFailures: Seq[IFile] = Nil
@@ -81,7 +79,7 @@ trait SourceIndexer extends HasLogger {
   def indexIFile(file: IFile): Try[Unit] = {
     val success: Try[Unit] = Success(())
 
-    if (isIndexable(file)) {
+    if (index.isIndexable(file)) {
       scalaSourceFileFromIFile(file).fold {
         // TODO: We couldn't convert it to a Scala file for some reason. What to do?
         success
@@ -114,9 +112,9 @@ trait SourceIndexer extends HasLogger {
     logger.debug(s"Indexing document: ${sf.file.path}")
 
     for {
-      _ <- removeOccurrencesFromFile(sf.workspaceFile.getProjectRelativePath(), sf.scalaProject)
+      _ <- index.removeOccurrencesFromFile(sf.workspaceFile.getProjectRelativePath(), sf.scalaProject)
       occurrences <- OccurrenceCollector.findOccurrences(sf)
-      _ <- addOccurrences(occurrences, sf.scalaProject)
+      _ <- index.addOccurrences(occurrences, sf.scalaProject)
     } yield Success(())
   }
 
