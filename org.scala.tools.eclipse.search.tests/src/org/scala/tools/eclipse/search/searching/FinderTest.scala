@@ -18,6 +18,8 @@ import org.apache.lucene.search.IndexSearcher
 import scala.util.Try
 import scala.util.Failure
 import java.io.IOException
+import org.junit.After
+import org.junit.Before
 
 class FinderTest {
 
@@ -29,13 +31,16 @@ class FinderTest {
 
   import FinderTest._
 
+  def anonymousIndex: Index with SourceIndexer =  new Index with SourceIndexer {
+    override val base = INDEX_DIR
+  }
+  
+  def anonymousFinder(index: Index): Finder =  new Finder(index, new LogErrorReporter)
+  
   @Test
   def canFindOccurrencesInSameProject = {
-
-    val config = new Index with SourceIndexer with Finder with LogErrorReporter {
-      override val base = INDEX_DIR
-    }
-
+    val index = anonymousIndex
+    val finder = anonymousFinder(index)
     val project = Project("FinderTest")
 
     val latch = new CountDownLatch(2)
@@ -55,10 +60,10 @@ class FinderTest {
 
     latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
-    config.indexProject(project.scalaProject)
+    index.indexProject(project.scalaProject)
 
     @volatile var results = 0
-    config.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
       results += 1
     }
 
@@ -107,11 +112,8 @@ class FinderTest {
 
   @Test
   def canFindOccurrencesInDifferentProjects = {
-
-    val config = new Index with SourceIndexer with Finder with LogErrorReporter {
-      override val base = INDEX_DIR
-    }
-
+    val index = anonymousIndex
+    val finder = anonymousFinder(index)
     val project1 = Project("FinderTest-DifferentProjects1")
     val project2 = Project("FinderTest-DifferentProjects2")
 
@@ -135,11 +137,11 @@ class FinderTest {
 
     latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
-    config.indexProject(project1.scalaProject)
-    config.indexProject(project2.scalaProject)
+    index.indexProject(project1.scalaProject)
+    index.indexProject(project2.scalaProject)
 
     @volatile var results = 0
-    config.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
       results += 1
     }
 
@@ -160,8 +162,7 @@ class FinderTest {
 
     val project1 = Project("FinderTest-IndexFailure1")
     val project2 = Project("FinderTest-IndexFailure2")
-
-    val config = new Index with SourceIndexer with Finder with LogErrorReporter {
+    val index = new Index with SourceIndexer {
       override val base = INDEX_DIR
       // Emulate a failure for the index of project2.
       override protected def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
@@ -170,6 +171,7 @@ class FinderTest {
         } else super.withSearcher(project)(f)
       }
     }
+    val finder = anonymousFinder(index)
 
     project2.addProjectsToClasspath(project1)
 
@@ -191,12 +193,12 @@ class FinderTest {
 
     latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
-    config.indexProject(project1.scalaProject)
-    config.indexProject(project2.scalaProject)
+    index.indexProject(project1.scalaProject)
+    index.indexProject(project2.scalaProject)
 
     @volatile var hits = 0
     @volatile var failures = 0
-    config.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
       hit = _ => hits += 1,
       errorHandler = _ => failures += 1)
 
@@ -217,9 +219,8 @@ class FinderTest {
      * the given point we want to be able to report that occurrence as
      * a potential hit.
      */
-    val config = new Index with SourceIndexer with Finder with LogErrorReporter {
-      override val base = INDEX_DIR
-    }
+    val index = anonymousIndex
+    val finder = anonymousFinder(index)
 
     val project = Project("FinderTest-UntableableOccurrence")
 
@@ -235,11 +236,11 @@ class FinderTest {
 
     latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
-    config.indexProject(project.scalaProject)
+    index.indexProject(project.scalaProject)
 
     @volatile var hits = 0
     @volatile var potentialHits = 0
-    config.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
       hit = loc => hits += 1,
       potentialHit = loc => potentialHits += 1)
 
