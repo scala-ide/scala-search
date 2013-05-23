@@ -19,20 +19,22 @@ class IndexJobManagerTest {
   import SDTTestUtils._
   import IndexJobManagerTest._
 
-  @volatile var index: Index with SourceIndexer = _
+  @volatile var indexer: SourceIndexer = _
   @volatile var indexManager: IndexJobManager = _
 
   @Before
   def setup {
-    index = new Index with SourceIndexer {
+    val index = new Index {
       override val base = new Path(mkPath("target","index-job-manager-test"))
     }
-    indexManager = new IndexJobManager(index) 
+    indexer = new SourceIndexer(index)
+    indexManager = new IndexJobManager(indexer) 
     indexManager.startup()
   }
 
   @After
   def teardown {
+    indexer = null
     indexManager.shutdown()
     indexManager = null
   }
@@ -201,16 +203,16 @@ class IndexJobManagerTest {
     // has been indexed. Instead until the index has been created on disc, as
     // we know that will happen once it has indexed the file. We wait no longer
     // than 10 seconds.
-    SDTTestUtils.waitUntil(10000)(index.location(p.underlying).toFile.exists)
+    SDTTestUtils.waitUntil(10000)(indexer.index.location(p.underlying).toFile.exists)
 
-    assertTrue(index.location(p.underlying).toFile.exists)
+    assertTrue(indexer.index.location(p.underlying).toFile.exists)
 
     // event
     p.underlying.delete(true, monitor)
     deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // expected
-    assertFalse(index.location(p.underlying).toFile.exists)
+    assertFalse(indexer.index.location(p.underlying).toFile.exists)
     observer.stop
   }
 }

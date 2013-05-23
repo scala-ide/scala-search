@@ -17,7 +17,7 @@ import org.scala.tools.eclipse.search.jobs.ProjectIndexJob
  * 
  * @note This trait is thread-safe.
  */
-class IndexJobManager(index: Index with SourceIndexer) extends Lifecycle with HasLogger {
+class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
 
   private val lock = new Object
 
@@ -54,8 +54,8 @@ class IndexJobManager(index: Index with SourceIndexer) extends Lifecycle with Ha
       onClose = stopIndexing(_),
       onDelete = project => {
         stopIndexing(project)
-        if(index.indexExists(project))
-          index.deleteIndex(project)
+        if(indexer.index.indexExists(project))
+          indexer.index.deleteIndex(project)
       })
   }
 
@@ -101,7 +101,7 @@ class IndexJobManager(index: Index with SourceIndexer) extends Lifecycle with Ha
     }
 
     ScalaPlugin.plugin.asScalaProject(project).map { sp =>
-      ProjectIndexJob(index, sp, 5000, onStopped)
+      ProjectIndexJob(indexer, sp, 5000, onStopped)
     }
   }
 

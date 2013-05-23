@@ -10,12 +10,9 @@ import org.scala.tools.eclipse.search.indexing.SearchFailure
 /**
  * Component that provides various methods related to finding Scala entities.
  */
-trait Finder extends ProjectFinder
-                with ErrorReporter
-                with HasLogger {
+class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
 
-  this: Index =>
-
+  private val finder: ProjectFinder = new ProjectFinder 
   /**
    * Find all occurrences of the entity at the given location.
    *
@@ -32,17 +29,17 @@ trait Finder extends ProjectFinder
 
     // Find all the Scala projects that are relevant to search in.
     val enclosingProject = location.cu.scalaProject.underlying
-    val all =  projectClosure(enclosingProject)
+    val all =  finder.projectClosure(enclosingProject)
     val allScala = all.map(ScalaPlugin.plugin.asScalaProject(_)).flatten
 
     // Get the symbol under the cursor. Use it to find other occurrences.
     location.cu.withSourceFile { (sf, pc) =>
       val spc = new SearchPresentationCompiler(pc)
       for {
-        comparator <- spc.comparator(location) onEmpty reportError(s"Couldn't get comparator based on symbol at ${location.offset} in ${sf.file.path}")
-        names <- spc.possibleNamesOfEntityAt(location) onEmpty reportError(s"Couldn't get name of symbol at ${location.offset} in ${sf.file.path}")
+        comparator <- spc.comparator(location) onEmpty reporter.reportError(s"Couldn't get comparator based on symbol at ${location.offset} in ${sf.file.path}")
+        names <- spc.possibleNamesOfEntityAt(location) onEmpty reporter.reportError(s"Couldn't get name of symbol at ${location.offset} in ${sf.file.path}")
       } {
-        val (occurrences, failures) = findOccurrences(names, allScala)
+        val (occurrences, failures) = index.findOccurrences(names, allScala)
         logger.debug(s"Found ${occurrences.size} potential matches")
         failures.foreach(errorHandler)
         occurrences.foreach { occurrence =>
@@ -53,9 +50,9 @@ trait Finder extends ProjectFinder
               case PossiblySame => potentialHit(occurrence.toResult)
               case NotSame =>
             }
-          }(reportError(s"Could not access source file ${occurrence.file.getPath.toOSString}"))
+          }(reporter.reportError(s"Could not access source file ${occurrence.file.getPath.toOSString}"))
         }
       }
-    }(reportError(s"Could not access source file ${location.cu.file.path}"))
+    }(reporter.reportError(s"Could not access source file ${location.cu.file.path}"))
   }
 }

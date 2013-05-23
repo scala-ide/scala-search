@@ -9,7 +9,7 @@ import scala.tools.eclipse.logging.HasLogger
 /**
  * Uses Eclipse MessageDialog to report errors
  */
-trait DialogErrorReporter extends ErrorReporter with HasLogger {
+class DialogErrorReporter extends ErrorReporter with HasLogger {
 
   def reportError(msg: String): Unit = {
     for {

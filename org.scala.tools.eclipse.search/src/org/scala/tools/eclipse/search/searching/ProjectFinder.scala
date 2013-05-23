@@ -3,7 +3,7 @@ package org.scala.tools.eclipse.search.searching
 import org.eclipse.core.resources.IProject
 import scala.collection.mutable.Stack
 
-trait ProjectFinder {
+class ProjectFinder {
 
   /**
    * Given a project, return a Set of all the projects that this project

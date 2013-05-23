@@ -29,7 +29,7 @@ import org.scala.tools.eclipse.search.Observing
  * needs to be re-indexed.
  */
 class ProjectIndexJob private (
-  index: Index with SourceIndexer,
+  indexer: SourceIndexer,
   project: ScalaProject,
   interval: Long,
   onStopped: (ProjectIndexJob) => Unit = _ => ()
@@ -44,13 +44,13 @@ class ProjectIndexJob private (
   private val changedResources: BlockingQueue[(IFile, FileEvent)] = new LinkedBlockingQueue[(IFile, FileEvent)]
 
   private val changed = (f: IFile) => {
-    if (index.isIndexable(f)) {
+    if (indexer.index.isIndexable(f)) {
       changedResources.put(f, Changed)
     }
   }
 
   private val added = (f: IFile) => {
-    if (index.isIndexable(f)) {
+    if (indexer.index.isIndexable(f)) {
       changedResources.put(f, Added)
     }
   }
@@ -81,20 +81,20 @@ class ProjectIndexJob private (
     val shouldIndex = for {
       proj <- Option(project)
     } yield {
-      !index.indexExists(proj.underlying)
+      !indexer.index.indexExists(proj.underlying)
     }
 
     if (shouldIndex.getOrElse(false)) {
-      index.indexProject(project).recover(handlers)
+      indexer.indexProject(project).recover(handlers)
     }
 
     while( !changedResources.isEmpty && !monitor.isCanceled() && projectIsOpenAndExists) {
       val (file, changed) = changedResources.poll()
       monitor.subTask(file.getName())
       changed match {
-        case Changed => index.indexIFile(file).recover(handlers)
-        case Added   => index.indexIFile(file).recover(handlers)
-        case Removed => index.removeOccurrencesFromFile(file.getProjectRelativePath(), project).recover(handlers)
+        case Changed => indexer.indexIFile(file).recover(handlers)
+        case Added   => indexer.indexIFile(file).recover(handlers)
+        case Removed => indexer.index.removeOccurrencesFromFile(file.getProjectRelativePath(), project).recover(handlers)
       }
       monitor.worked(1)
     }
@@ -121,7 +121,7 @@ class ProjectIndexJob private (
   private def removeIndexAndRestart = {
     logger.debug(s"The index was broken so we delete it and re-index the project ${project.underlying.getName}")
     cancel() // Stop the current 'run' of the thread.
-    index.deleteIndex(project.underlying)
+    indexer.index.deleteIndex(project.underlying)
     schedule(interval)
   }
 
@@ -156,14 +156,14 @@ class ProjectIndexJob private (
 
 object ProjectIndexJob extends HasLogger {
 
-  def apply(config: Index with SourceIndexer, 
+  def apply(indexer: SourceIndexer, 
                 sp: ScalaProject, 
           interval: Int = 5000,
          onStopped: (ProjectIndexJob) => Unit = _ => ()): ProjectIndexJob = {
 
     logger.debug("Started ProjectIndexJob for " + sp.underlying.getName)
 
-    val job = new ProjectIndexJob(config, sp, interval, onStopped)
+    val job = new ProjectIndexJob(indexer, sp, interval, onStopped)
     job.setup
     job.setRule(ResourcesPlugin.getWorkspace().getRuleFactory().modifyRule(sp.underlying))
     job.setPriority(Job.LONG)
