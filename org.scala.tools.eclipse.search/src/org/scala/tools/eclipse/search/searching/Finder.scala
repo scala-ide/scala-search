@@ -5,6 +5,7 @@ import org.scala.tools.eclipse.search.indexing.Index
 import scala.tools.eclipse.ScalaPlugin
 import org.scala.tools.eclipse.search.ErrorReporter
 import scala.tools.eclipse.logging.HasLogger
+import org.scala.tools.eclipse.search.indexing.SearchFailure
 
 /**
  * Component that provides various methods related to finding Scala entities.
@@ -25,8 +26,8 @@ trait Finder extends ProjectFinder
    * - Should any errors occur in the Index that we can't handle, the failures
    *   are passed to the `errorHandler` function.
    */
-  def occurrencesOfEntityAt(location: Location)(hit: Location => Unit,
-                                                potentialHit: Location => Unit = _ => (),
+  def occurrencesOfEntityAt(location: Location)(hit: Result => Unit,
+                                                potentialHit: Result=> Unit = _ => (),
                                                 errorHandler: SearchFailure => Unit = _ => ()): Unit = {
 
     // Find all the Scala projects that are relevant to search in.
@@ -42,14 +43,15 @@ trait Finder extends ProjectFinder
         name <- spc.nameOfEntityAt(location) onEmpty reportError(s"Couldn't get name of symbol at ${location.offset} in ${sf.file.path}")
       } {
         val (occurrences, failures) = findOccurrences(name, allScala)
+        logger.debug(s"Found ${occurrences.size} potential matches")
         failures.foreach(errorHandler)
         occurrences.foreach { occurrence =>
           occurrence.file.withSourceFile { (sf, _) =>
             val loc = Location(occurrence.file, occurrence.offset)
             comparator.isSameAs(loc) match {
-              case Same => hit(loc)
-              case PossiblySame => potentialHit(loc)
-              case NotSame => 
+              case Same => hit(occurrence.toResult)
+              case PossiblySame => potentialHit(occurrence.toResult)
+              case NotSame =>
             }
           }(reportError(s"Could not access source file ${occurrence.file.getPath.toOSString}"))
         }
