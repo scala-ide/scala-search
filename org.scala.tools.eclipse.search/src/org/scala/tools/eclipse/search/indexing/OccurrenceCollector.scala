@@ -47,22 +47,22 @@ object OccurrenceCollector extends HasLogger {
         t match {
 
           case Ident(fun) if !isSynthetic(pc)(t, fun.toString) =>
-            occurrences += Occurrence(fun.toString, file, t.pos.point, Reference)
+            occurrences += Occurrence(fun.toString, file, t.pos.point, Reference, t.pos.lineContent)
 
           case Select(rest,name) if !isSynthetic(pc)(t, name.toString) =>
-            occurrences += Occurrence(name.toString, file, t.pos.point, Reference)
+            occurrences += Occurrence(name.toString, file, t.pos.point, Reference, t.pos.lineContent)
             traverse(rest) // recurse in the case of chained selects: foo.baz.bar
 
           // Method definitions
           case DefDef(mods, name, _, args, _, body) if !isSynthetic(pc)(t, name.toString) =>
-            occurrences += Occurrence(name.toString, file, t.pos.point, Declaration)
+            occurrences += Occurrence(name.toString, file, t.pos.point, Declaration, t.pos.lineContent)
             traverseTrees(mods.annotations)
             traverseTreess(args)
             traverse(body)
 
           // Val's and arguments.
           case ValDef(_, name, tpt, rhs) =>
-            occurrences += Occurrence(name.toString, file, t.pos.point, Declaration)
+            occurrences += Occurrence(name.toString, file, t.pos.point, Declaration, t.pos.lineContent)
             traverse(tpt)
             traverse(rhs)
 

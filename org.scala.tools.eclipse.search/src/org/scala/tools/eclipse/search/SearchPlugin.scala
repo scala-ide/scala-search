@@ -9,8 +9,14 @@ import org.osgi.framework.BundleContext
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import scala.tools.eclipse.ScalaPlugin
+import org.scala.tools.eclipse.search.searching.Finder
+import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 
 object SearchPlugin extends HasLogger {
+
+  // Only expose the Finder API.
+  @volatile var finder: Finder = _
+
   final val PLUGIN_ID  = "org.scala.tools.eclipse.search"
 }
 
@@ -23,11 +29,13 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
   override def start(context: BundleContext) {
     super.start(context)
 
-    val index = new Index with SourceIndexer {
+    val config = new Index with SourceIndexer with Finder with DialogErrorReporter {
       override val base = getStateLocation().append(INDEX_DIR_NAME)
     }
-    indexManager = new IndexJobManager(index)
+    indexManager = new IndexJobManager(config)
     indexManager.startup()
+
+    SearchPlugin.finder = config
 
     val root = ResourcesPlugin.getWorkspace().getRoot()
 
@@ -43,6 +51,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
     super.stop(context)
     indexManager.shutdown()
     indexManager = null
+    SearchPlugin.finder = null
   }
 
 }
