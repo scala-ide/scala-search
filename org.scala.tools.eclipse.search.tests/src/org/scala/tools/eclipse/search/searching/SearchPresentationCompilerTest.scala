@@ -145,6 +145,17 @@ class SearchPresentationCompilerTest {
     """} isSameMethod(false)
   }
 
+  @Test def isSameMethod_worksForApply {
+    project.create("WorksForApply.scala") {"""
+      object ObjectA {
+        def a|pply(x: String) = x
+      }
+      object ObjectB {
+        Obje|ctA("test")
+      }
+    """} isSameMethod(true)
+  }
+
   @Test
   def isSameMethod_overriddenCountsAsSame {
     project.create("OverriddenCountsAsSame.scala") {"""
