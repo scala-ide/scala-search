@@ -26,8 +26,8 @@ trait Finder extends ProjectFinder
    * - Should any errors occur in the Index that we can't handle, the failures
    *   are passed to the `errorHandler` function.
    */
-  def occurrencesOfEntityAt(location: Location)(hit: Result => Unit,
-                                                potentialHit: Result=> Unit = _ => (),
+  def occurrencesOfEntityAt(location: Location)(hit: ExactHit => Unit,
+                                                potentialHit: PotentialHit=> Unit = _ => (),
                                                 errorHandler: SearchFailure => Unit = _ => ()): Unit = {
 
     // Find all the Scala projects that are relevant to search in.
@@ -48,8 +48,8 @@ trait Finder extends ProjectFinder
         occurrences.foreach { occurrence =>
           val loc = Location(occurrence.file, occurrence.offset)
           comparator.isSameAs(loc) match {
-            case Same => hit(occurrence.toResult)
-            case PossiblySame => potentialHit(occurrence.toResult)
+            case Same => hit(ExactHit(occurrence.file, occurrence.word, occurrence.lineContent, occurrence.offset))
+            case PossiblySame => potentialHit(PotentialHit(occurrence.file, occurrence.word, occurrence.lineContent, occurrence.offset))
             case NotSame => logger.debug(s"$occurrence wasn't the same.")
           }
         }

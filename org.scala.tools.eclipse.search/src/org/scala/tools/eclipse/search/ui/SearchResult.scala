@@ -5,7 +5,7 @@ import org.eclipse.search.ui.ISearchQuery
 import org.eclipse.search.ui.text.AbstractTextSearchResult
 import org.eclipse.search.ui.text.IEditorMatchAdapter
 import org.eclipse.search.ui.text.IFileMatchAdapter
-import org.scala.tools.eclipse.search.searching.Result
+import org.scala.tools.eclipse.search.searching.Hit
 import org.eclipse.search.ui.text.Match
 import scala.tools.eclipse.ScalaImages
 
@@ -48,7 +48,7 @@ class SearchResult(query: ISearchQuery) extends AbstractTextSearchResult {
 
   def resultsGroupedByFile = {
     // TODO: Cache this, for speed improvements
-    val res = this.getElements.map(_.asInstanceOf[Result])
+    val res = this.getElements.map(_.asInstanceOf[Hit])
     res.groupBy(_.cu.workspaceFile.getProjectRelativePath().toOSString())
   }
 

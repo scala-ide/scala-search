@@ -5,7 +5,7 @@ import org.eclipse.jface.viewers.TreeViewer
 import org.eclipse.search.ui.text.AbstractTextSearchViewPage
 import org.eclipse.jface.viewers.IContentProvider
 import org.eclipse.jface.viewers.ILabelProvider
-import org.scala.tools.eclipse.search.searching.Result
+import org.scala.tools.eclipse.search.searching.Hit
 import scala.tools.eclipse.InteractiveCompilationUnit
 import org.eclipse.jface.viewers.Viewer
 import scala.tools.eclipse.logging.HasLogger
@@ -72,8 +72,8 @@ class SearchResultPage
 
   override protected def handleOpen(event: OpenEvent): Unit = {
     val firstElement = event.getSelection().asInstanceOf[IStructuredSelection].getFirstElement()
-    if (firstElement.isInstanceOf[Result]) {
-      val result = firstElement.asInstanceOf[Result]
+    if (firstElement.isInstanceOf[Hit]) {
+      val result = firstElement.asInstanceOf[Hit]
       val page = JavaPlugin.getActivePage()
       val file = result.cu.workspaceFile
       val input = new FileEditorInput(file)

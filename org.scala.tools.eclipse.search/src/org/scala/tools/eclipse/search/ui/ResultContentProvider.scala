@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search.ui
 
-import org.scala.tools.eclipse.search.searching.Result
+import org.scala.tools.eclipse.search.searching.Hit
 import org.eclipse.jface.viewers.Viewer
 import scala.tools.eclipse.logging.HasLogger
 import org.eclipse.jface.viewers.ITreeContentProvider

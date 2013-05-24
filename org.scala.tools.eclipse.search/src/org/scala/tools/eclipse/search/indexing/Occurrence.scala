@@ -1,7 +1,7 @@
 package org.scala.tools.eclipse.search.indexing
 
 import scala.tools.eclipse.javaelements.ScalaSourceFile
-import org.scala.tools.eclipse.search.searching.Result
+import org.scala.tools.eclipse.search.searching.Hit
 
 /**
  * Represents the various kinds of occurrences that we deal with
@@ -36,9 +36,6 @@ case class Occurrence(
     offset: Int, // char offset from beginning of file
     occurrenceKind: OccurrenceKind,
     lineContent: String = "") {
-
-  def toResult: Result =
-    Result(file, word, lineContent,offset)
 
   override def equals(other: Any) = other match {
     // Don't compare lineCOntent 

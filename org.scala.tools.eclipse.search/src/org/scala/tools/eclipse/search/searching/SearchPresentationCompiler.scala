@@ -97,13 +97,31 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
               otherSpc.symbolAt(otherLoc, otherSf) match {
                 case otherSpc.FoundSymbol(symbol2) =>
                   (for {
-                    imported <- importSymbol(otherSpc)(symbol2)
-                    isSame   <- isSameMethod(symbol, imported)
+                    imported   <- importSymbol(otherSpc)(symbol2)
+                    isSame     <- isSameMethod(symbol, imported)
+                    overloaded <- pc.askOption { () => imported.isOverloaded } onEmpty logger.debug("Timed out on overloaded check")
                   } yield {
-                    if(isSame) Same else NotSame
-                  }) getOrElse {
-                    NotSame
-                  }
+                    // The following check shouldn't be needed when/if we fix the compiler bug that makes `askTypeAt`
+                    // return overloaded method symbols rather than precise method symbols. Until then, we check that
+                    // at least one of the overloaded alternatives match the symbol we're looking for. If one of the
+                    // alternative matches we register the occurrence as a Possible match (It's not a ExactMatch as it
+                    // might not be the right overloaded method that is appearing at the location).
+                    //
+                    // This check takes care of cases where the symbol we found is an overloaded method with same name
+                    // as the one we're looking for BUT is in fact not a match, i.e.
+                    //
+                    //   object A { def foo(x: String): String = x ; def foo(y: Int): String = y.toString }
+                    //   object B { def foo(x: String): String = x ; def foo(y: Int): String = y.toString }
+                    //
+                    // If we search for B.foo it could potentially show A.foo if we don't check if one of the alternatives
+                    // match.
+                    if (overloaded) {
+                      val oneOverloadedMatches = pc.askOption { () => imported.alternatives } map { alternatives =>
+                        alternatives.map(isSameMethod(symbol,_)).flatten.foldLeft(false)( _ || _)
+                      }
+                      if (oneOverloadedMatches.getOrElse(false)) PossiblySame else NotSame
+                    } else if(isSame) Same else NotSame
+                  }) getOrElse NotSame
                 case _ => PossiblySame
               }
             })(PossiblySame)
