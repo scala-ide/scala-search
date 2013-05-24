@@ -9,12 +9,14 @@ import org.eclipse.ui.ISharedImages
 import org.eclipse.jface.resource.JFaceResources
 import org.eclipse.swt.graphics.RGB
 import scala.tools.eclipse.logging.HasLogger
-import org.scala.tools.eclipse.search.searching.Result
+import org.scala.tools.eclipse.search.searching.Hit
 import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
 import org.scala.tools.eclipse.search.UIUtil
 import scala.tools.eclipse.ScalaImages
+import org.scala.tools.eclipse.search.searching.ExactHit
+import org.scala.tools.eclipse.search.searching.PotentialHit
 
 /**
  * Responsible for telling Eclipse how to render the results in the
@@ -34,8 +36,11 @@ class ResultLabelProvider extends StyledCellLabelProvider with HasLogger {
         text.append(str)
         text.append(" (%s)".format(count), StyledString.COUNTER_STYLER)
         cell.setImage(ScalaImages.SCALA_FILE.createImage())
-      case result: Result =>
-        val styled = new StyledString(result.lineContent.trim)
+      case ExactHit(_,_,line, _) =>
+        val styled = new StyledString(line.trim)
+        text.append(styled)
+      case PotentialHit(_,_,line,_) =>
+        val styled = new StyledString(s"(?) ${line.trim}")
         text.append(styled)
       case x =>
         logger.debug(s"Expected content of either a tuple or Result, got: ${x}")
