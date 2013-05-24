@@ -46,14 +46,12 @@ trait Finder extends ProjectFinder
         logger.debug(s"Found ${occurrences.size} potential matches")
         failures.foreach(errorHandler)
         occurrences.foreach { occurrence =>
-          occurrence.file.withSourceFile { (sf, _) =>
-            val loc = Location(occurrence.file, occurrence.offset)
-            comparator.isSameAs(loc) match {
-              case Same => hit(occurrence.toResult)
-              case PossiblySame => potentialHit(occurrence.toResult)
-              case NotSame =>
-            }
-          }(reportError(s"Could not access source file ${occurrence.file.getPath.toOSString}"))
+          val loc = Location(occurrence.file, occurrence.offset)
+          comparator.isSameAs(loc) match {
+            case Same => hit(occurrence.toResult)
+            case PossiblySame => potentialHit(occurrence.toResult)
+            case NotSame => logger.debug(s"$occurrence wasn't the same.")
+          }
         }
       }
     }(reportError(s"Could not access source file ${location.cu.file.path}"))

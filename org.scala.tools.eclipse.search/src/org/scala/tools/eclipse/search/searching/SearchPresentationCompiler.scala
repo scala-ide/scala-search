@@ -1,4 +1,5 @@
-package org.scala.tools.eclipse.search.searching
+package org.scala.tools.eclipse.search
+package searching
 
 import scala.tools.eclipse.ScalaPresentationCompiler
 import scala.reflect.internal.util.SourceFile
@@ -95,10 +96,14 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
               val otherSpc = new SearchPresentationCompiler(otherPc)
               otherSpc.symbolAt(otherLoc, otherSf) match {
                 case otherSpc.FoundSymbol(symbol2) =>
-                  pc.askOption(() => {
-                    val imported = importSymbol(otherSpc)(symbol2)
-                    if(isSameMethod(symbol, imported)) Same else NotSame
-                  }) getOrElse NotSame
+                  (for {
+                    imported <- importSymbol(otherSpc)(symbol2)
+                    isSame   <- isSameMethod(symbol, imported)
+                  } yield {
+                    if(isSame) Same else NotSame
+                  }) getOrElse {
+                    NotSame
+                  }
                 case _ => PossiblySame
               }
             })(PossiblySame)
@@ -112,15 +117,17 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   /**
    * Get the symbol of the entity at a given location in a file.
    *
-   * The source file needs to be loaded before invoking this method. This can be
-   * achieved by invoking `pc.askReload(..)`.
+   * The source file needs not be loaded in the presentation compiler prior to
+   * this call.
    */
   protected def symbolAt[A](loc: Location, cu: SourceFile): SymbolRequest = {
     val typed = new Response[pc.Tree]
     val pos = new OffsetPosition(cu, loc.offset)
     pc.askTypeAt(pos, typed)
     typed.get.fold(
-      tree => filterNoSymbols(tree.symbol),
+      tree => {
+        filterNoSymbols(tree.symbol)
+      },
       err => {
         logger.debug(err)
         NotTypeable
@@ -147,11 +154,24 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    * TODO: Is the imported symbol discarded again, or does this create a memory leak?
    *       Ticket #1001703
    */
-  private def importSymbol(spc: SearchPresentationCompiler)(s: spc.pc.Symbol): pc.Symbol = {
+  private def importSymbol(spc: SearchPresentationCompiler)(s: spc.pc.Symbol): Option[pc.Symbol] = {
+
     // https://github.com/scala/scala/blob/master/src/reflect/scala/reflect/api/Importers.scala
     val importer0 = pc.mkImporter(spc.pc)
     val importer = importer0.asInstanceOf[pc.Importer { val from: spc.pc.type }]
-    importer.importSymbol(s)
+
+    // Before importing the symbol, we have to make sure that it is fully initialized,
+    // otherwise it would access thread unsafe members in spc.pc when importing the symbol
+    // into pc.
+    spc.pc.askOption { () =>
+      s.initialize
+      s.ownerChain.foreach(_.initialize)
+    } onEmpty (logger.debug("Timed out on initializing symbol before import"))
+
+    pc.askOption { () =>
+      importer.importSymbol(s)
+    }  onEmpty (logger.debug("Timed out on symbol import"))
+
   }
 
   /**
@@ -162,10 +182,10 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    *  - s1.owner and s2.owner are in the same hierarchy
    *  - They have the same type signature or one is overriding the other
    */
-  private def isSameMethod(s1: pc.Symbol, s2: pc.Symbol): Boolean = {
+  private def isSameMethod(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
     pc.askOption { () =>
-
-      lazy val isInHiearchy = s1.owner.isSubClass(s2.owner) || s2.owner.isSubClass(s1.owner)
+      lazy val isInHiearchy = s1.owner.isSubClass(s2.owner) ||
+                              s2.owner.isSubClass(s1.owner)
 
       lazy val hasSameName = {
         def getName(s: pc.Symbol)= {
@@ -183,14 +203,13 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       // If s1 and s2 are defined in the same class the owner will be the same
       // thus s1.overriddenSymbol(S2.owner) will actually return s1.
       lazy val isOverridden = s1.owner != s2.owner &&
-                              (s1.overriddenSymbol(s2.owner) != pc.NoSymbol ||
+                             (s1.overriddenSymbol(s2.owner) != pc.NoSymbol ||
                               s2.overriddenSymbol(s1.owner) != pc.NoSymbol)
 
       (s1 == s2) || // Fast-path.
       hasSameName &&
       isInHiearchy &&
       (hasSameTypeSignature || isOverridden)
-
-    } getOrElse false
+    } onEmpty logger.debug("Timed out when comparing symbols")
   }
 }
