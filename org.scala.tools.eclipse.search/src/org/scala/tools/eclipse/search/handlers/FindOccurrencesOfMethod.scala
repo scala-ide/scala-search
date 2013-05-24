@@ -17,13 +17,15 @@ import org.scala.tools.eclipse.search.UIUtil
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.searching.Finder
 import org.scala.tools.eclipse.search.searching.Location
-import org.scala.tools.eclipse.search.searching.Result
+import org.scala.tools.eclipse.search.searching.Hit
 import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 import org.scala.tools.eclipse.search.ui.SearchResult
 import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler
 import org.scala.tools.eclipse.search.indexing.SearchFailure
 import scala.tools.eclipse.util.Utils.any2optionable
 import scala.tools.eclipse.ScalaSourceFileEditor
+import org.scala.tools.eclipse.search.searching.ExactHit
+import org.scala.tools.eclipse.search.searching.PotentialHit
 
 class FindOccurrencesOfMethod
   extends AbstractHandler
@@ -58,18 +60,21 @@ class FindOccurrencesOfMethod
           override def canRunInBackground(): Boolean = true
 
           override def getLabel: String =
-            s"'${name.getOrElse("selection")}' - ${hitsCount} exact matches, $potentialHitsCount potential matches "
+            s"'${name.getOrElse("selection")}' - ${hitsCount} exact matches, $potentialHitsCount potential matches. Total ${hitsCount+potentialHitsCount} "
 
           override def run(monitor: IProgressMonitor): IStatus = {
             finder.occurrencesOfEntityAt(loc)(
-                hit = (r: Result) => {
+                hit = (r: ExactHit) => {
                   hitsCount += 1
                   sr.addMatch(r.toMatch)
                 },
-                potentialHit = _ =>
-                  potentialHitsCount  += 1,
-                errorHandler = (fail: SearchFailure) =>
-                  logger.debug(s"Got an error ${fail}"))
+                potentialHit = (r: PotentialHit) => {
+                  potentialHitsCount  += 1
+                  sr.addMatch(r.toMatch)
+                },
+                errorHandler = (fail: SearchFailure) => {
+                  logger.debug(s"Got an error ${fail}")
+                })
             Status.OK_STATUS
           }
           override def getSearchResult(): ISearchResult = sr

@@ -6,14 +6,14 @@ import org.eclipse.ui.IEditorPart
 import org.eclipse.search.ui.text.Match
 import org.scala.tools.eclipse.search.searching.Location
 import org.eclipse.ui.IFileEditorInput
-import org.scala.tools.eclipse.search.searching.Result
+import org.scala.tools.eclipse.search.searching.Hit
 import scala.tools.eclipse.logging.HasLogger
 
 class EditorMatchAdapter extends IEditorMatchAdapter with HasLogger {
 
   // Returns all matches that are contained in the element shown in the given editor.
   override def computeContainedMatches(result: AbstractTextSearchResult, editor: IEditorPart): Array[Match] = {
-    val results = result.getElements.map(_.asInstanceOf[Result])
+    val results = result.getElements.map(_.asInstanceOf[Hit])
     editor.getEditorInput() match {
       case in: IFileEditorInput => results.filter(_.cu.workspaceFile == in.getFile).map(_.toMatch)
       case _ => Array()
