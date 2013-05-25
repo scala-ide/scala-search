@@ -41,14 +41,14 @@
              name="Find References of Method"
              description="Finds all references of a method"
              categoryId="org.scala.tools.eclipse.search.commands"
-             id="org.scala.tools.eclipse.search.commands.FindReferencesOfMethod"/>
+             id="org.scala.tools.eclipse.search.commands.FindReferences"/>
   </extension>
 
   <!-- Handlers -->
   <extension point="org.eclipse.ui.handlers">
     <handler
-             class="org.scala.tools.eclipse.search.handlers.FindOccurrencesOfMethod"
-             commandId="org.scala.tools.eclipse.search.commands.FindReferencesOfMethod">
+             class="org.scala.tools.eclipse.search.handlers.FindOccurrences"
+             commandId="org.scala.tools.eclipse.search.commands.FindReferences">
     </handler>
   </extension>
 
@@ -56,7 +56,7 @@
   <extension point="org.eclipse.ui.menus">
      <menuContribution locationURI="popup:#CompilationUnitEditorContext?before=additions">
         <command
-                 commandId="org.scala.tools.eclipse.search.commands.FindReferencesOfMethod"
+                 commandId="org.scala.tools.eclipse.search.commands.FindReferences"
                  id="org.scala.tools.eclipse.search.menus.occurrences"
                  label="Find occurrences"
                  tooltip="">
@@ -68,7 +68,7 @@
   <extension point="org.eclipse.ui.bindings">
     <sequenceModifier find="CTRL" replace="COMMAND" platforms="cocoa,carbon" />
     <key
-         commandId="org.scala.tools.eclipse.search.commands.FindReferencesOfMethod"
+         commandId="org.scala.tools.eclipse.search.commands.FindReferences"
          schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
          contextId="scala.tools.eclipse.scalaEditorScope"
          sequence="CTRL+ALT+SHIFT+R"/>

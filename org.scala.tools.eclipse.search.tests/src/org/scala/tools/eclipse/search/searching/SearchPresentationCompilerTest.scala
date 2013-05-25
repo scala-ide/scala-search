@@ -94,13 +94,17 @@ class SearchPresentationCompilerTest {
     """} expectedTypeError
   }
 
+  /**----------------------*
+   * Methods               *
+   * ----------------------*/
+
   @Test
   def isSameMethod_withSameSymbol {
     project.create("WithSameSymbol.scala") {"""
       class WithSameSymbol {
         def re|ve|rse(x: String) = x.reverse
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -110,7 +114,7 @@ class SearchPresentationCompilerTest {
         def fo|o(x: String) = x
         def bar(x: String) = fo|o(x)
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -120,7 +124,7 @@ class SearchPresentationCompilerTest {
         def fo|o(x: String) = x
         def bar(x: String) = invalid(fo|o(x))
       }
-    """} isSameMethod(false)
+    """} isSame(false)
   }
 
   @Test
@@ -132,7 +136,7 @@ class SearchPresentationCompilerTest {
       class B {
         def bar(x: String) = (new A).fo|o(x)
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -142,7 +146,7 @@ class SearchPresentationCompilerTest {
         def ad|dStrings(x: String, y: String) = x + y
         def ad|dInts(x: Int, y: Int) = x + y
       }
-    """} isSameMethod(false)
+    """} isSame(false)
   }
 
   @Test def isSameMethod_worksForApply {
@@ -153,7 +157,7 @@ class SearchPresentationCompilerTest {
       object ObjectB {
         Obje|ctA("test")
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -165,7 +169,7 @@ class SearchPresentationCompilerTest {
       class B extends A {
         override def fo|o(x: String) = x
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -177,11 +181,11 @@ class SearchPresentationCompilerTest {
       class B extends A {
         override val fo|o: String = "there"
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
-  def isSameMethod_overriddenVarCountAsSame {
+  def isSameMethod_overriddenVarCountAsSameSetter {
     project.create("OverriddenVarCountsAsSame.scala") {"""
       trait A {
         def fo|o_=(x: String): Unit
@@ -189,7 +193,48 @@ class SearchPresentationCompilerTest {
       abstract class B extends A {
         var f|oo: String
       }
-    """} isSameMethod(true)
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameMethod_overriddenVarCountAsSameGetter {
+    project.create("OverriddenVarCountsAsSame.scala") {"""
+      trait A {
+        def fo|o: String
+      }
+      abstract class B extends A {
+        var f|oo: String
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameMethod_normalizeSetter {
+    project.create("OverriddenVarCountsAsSame.scala") {"""
+      trait A {
+        def fo|o_=(x: String): Unit
+      }
+      class B(var foo: String) extends A
+      object C {
+        val b = new B("test")
+        b.fo|o = "setting this"
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameMethod_beCarefulAboutOverriddenSymbols {
+    // A bug I had in a previous version would fail
+    // this test.
+    project.create("BeCarefullAboutOverridden.scala") {"""
+      class A {
+        def f|oo: String = "hi"
+      }
+      class B extends A {
+        def fo|o(x: String): String = x
+        override def foo: String = "bar in B"
+      }
+    """} isSame(false)
   }
 
   @Test
@@ -202,7 +247,7 @@ class SearchPresentationCompilerTest {
         type S = String
         override def fo|o: S = "there"
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -212,7 +257,7 @@ class SearchPresentationCompilerTest {
         def ad|d(x: String, y: String) = x + y
         def ad|d(x: Int, y: Int) = x + y
       }
-    """} isSameMethod(false)
+    """} isSame(false)
   }
 
   @Test def isSameMethod_overloaded {
@@ -232,7 +277,7 @@ class SearchPresentationCompilerTest {
       }
     """}
 
-    sourceA.isSameMethodAs(sourceB, true)
+    sourceA.isSameAs(sourceB, true)
   }
 
   @Test def isSameMethod_overloadedWithExplicitTypeParam {
@@ -256,7 +301,7 @@ class SearchPresentationCompilerTest {
       }
     """}
 
-    sourceA.isSameMethodAs(sourceB, true)
+    sourceA.isSameAs(sourceB, true)
   }
 
   @Test
@@ -266,7 +311,7 @@ class SearchPresentationCompilerTest {
         def fo|o(x: String): String
         def bar: String => String = fo|o
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -279,7 +324,7 @@ class SearchPresentationCompilerTest {
       class B extends A {
         def bar = fo|o("test")
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -291,7 +336,7 @@ class SearchPresentationCompilerTest {
       class B extends A {
         def bar = fo|o("test")
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -303,7 +348,7 @@ class SearchPresentationCompilerTest {
       class B extends A {
         abstract override def fo|o(x: String): String = "Test"
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -317,7 +362,7 @@ class SearchPresentationCompilerTest {
           super.f|oo(x)+"Test"
         }
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -329,7 +374,7 @@ class SearchPresentationCompilerTest {
       class B extends A {
         override def m|e: this.type = this
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -339,7 +384,7 @@ class SearchPresentationCompilerTest {
         def fo|o(x: String): String = x
         def bar = (new Object).asInstanceOf[A].fo|o("test")
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test def isSameMethod_constructorsAreMethodsToo {
@@ -352,7 +397,7 @@ class SearchPresentationCompilerTest {
       class B {
         def foo = ne|w A("test")
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -366,7 +411,7 @@ class SearchPresentationCompilerTest {
           t|his(x)
         }
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test def isSameMethod_selfTypes {
@@ -377,7 +422,7 @@ class SearchPresentationCompilerTest {
       class B { this: A =>
         def bar = fo|o("test")
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
 
   @Test
@@ -390,8 +435,124 @@ class SearchPresentationCompilerTest {
       object C {
         def fo|o(x: String) = x
       }
-    """} isSameMethod(true)
+    """} isSame(true)
   }
+
+  /**----------------------*
+   * Vars                  *
+   * ----------------------*/
+
+  @Test
+  def isSameVar_canCompareVars {
+    project.create("CanCompareVars.scala") {"""
+      class A {
+        var var|iable: String = "test"
+        var|iable
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameVar_canCompareSetters {
+    project.create("CanCompareSetters.scala") {"""
+      class A {
+        var variable: String = "test"
+        var|iable = "foo"
+        var|iable = "bar"
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameVar_canCompareGetters {
+    project.create("CanCompareGetters.scala") {"""
+      object A {
+        var variable: String = "test"
+      }
+      object B {
+        A.var|iable
+        A.var|iable
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameVar_canCompareVarAndSetter {
+    project.create("CanCompareVarAndSetter.scala") {"""
+      class A {
+        var vari|able: String = "test"
+        var|iable = "foo"
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameVar_canCompareVarAndGetter {
+    project.create("CanCompareGetters.scala") {"""
+      object A {
+        var var|iable: String = "test"
+      }
+      object B {
+        A.var|iable
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameVar_canCompareExplicitSetter {
+    project.create("CanCompareExplicitSetter.scala") {"""
+      object A {
+        var var|iable: String = "test"
+      }
+      object B {
+        A.variab|le_=("foo")
+      }
+    """} isSame(true)
+  }
+
+  /**----------------------*
+   * Vals                  *
+   * ----------------------*/
+
+  @Test
+  def isSameVal_canCompareVals = {
+    project.create("CanCompareVals.scala") {"""
+      class A {
+        val va|lue = "test"
+        val|ue
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameVal_canCompareGetters = {
+    project.create("CanCompareGetters.scala") {"""
+      object A {
+        val value = "test"
+      }
+      object B {
+        A.val|ue
+        A.val|ue
+      }
+    """} isSame(true)
+  }
+
+  @Test
+  def isSameVal_canCompareValAndGetter = {
+    project.create("CanCompareGetters.scala") {"""
+      object A {
+        val va|lue = "test"
+      }
+      object B {
+        A.val|ue
+        A.value
+      }
+    """} isSame(true)
+  }
+
+  /**----------------------*
+   * Various               *
+   * ----------------------*/
 
   @Test
   def isSameMethod_worksWithSameProject {
@@ -413,7 +574,7 @@ class SearchPresentationCompilerTest {
 
     latch.await(5,java.util.concurrent.TimeUnit.SECONDS)
 
-    sourceA.isSameMethodAs(sourceB)
+    sourceA.isSameAs(sourceB)
 
     p1.delete
     observer.stop
@@ -451,7 +612,7 @@ class SearchPresentationCompilerTest {
 
     latch.await(5,java.util.concurrent.TimeUnit.SECONDS)
 
-    sourceA.isSameMethodAs(sourceB)
+    sourceA.isSameAs(sourceB)
 
     p1.delete
     p2.delete
@@ -502,9 +663,9 @@ class SearchPresentationCompilerTest {
 
     latch.await(5,java.util.concurrent.TimeUnit.SECONDS)
 
-    sourceB.isSameMethodAs(sourceA)
-    sourceC.isSameMethodAs(sourceA)
-    sourceC.isSameMethodAs(sourceB)
+    sourceB.isSameAs(sourceA)
+    sourceC.isSameAs(sourceA)
+    sourceC.isSameAs(sourceB)
 
     p1.delete
     p2.delete
