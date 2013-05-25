@@ -29,13 +29,17 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
   override def start(context: BundleContext) {
     super.start(context)
 
-    val config = new Index with SourceIndexer with Finder with DialogErrorReporter {
+    val reporter = new DialogErrorReporter
+    val index = new Index {
       override val base = getStateLocation().append(INDEX_DIR_NAME)
     }
-    indexManager = new IndexJobManager(config)
+    val indexer = new SourceIndexer(index) 
+   
+ 
+    indexManager = new IndexJobManager(indexer)
     indexManager.startup()
 
-    SearchPlugin.finder = config
+    SearchPlugin.finder = new Finder(index, reporter)
 
     val root = ResourcesPlugin.getWorkspace().getRoot()
 

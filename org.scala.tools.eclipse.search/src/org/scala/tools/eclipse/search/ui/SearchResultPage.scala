@@ -29,13 +29,14 @@ import scala.tools.eclipse.ScalaSourceFileEditor
  */
 class SearchResultPage
     extends AbstractTextSearchViewPage
-    with HasLogger
-    with DialogErrorReporter {
+    with HasLogger {
 
   // http://javasourcecode.org/html/open-source/eclipse/eclipse-3.5.2/org/eclipse/jdt/internal/ui/search/JavaSearchResultPage.java.html
 
-  val contentProvider = new ResultContentProvider(this)
-  val labelProvider = new ResultLabelProvider
+  private val contentProvider = new ResultContentProvider(this)
+  private val labelProvider = new ResultLabelProvider
+  
+  private val reporter = new DialogErrorReporter
 
   def view: StructuredViewer = {
     super.getViewer()
@@ -59,7 +60,7 @@ class SearchResultPage
    */
   def configureTableViewer(table: TableViewer): Unit = {
     // TODO: Set up a content provider for the table.
-    reportError("Table View is currently not supported")
+    reporter.reportError("Table View is currently not supported")
   }
 
   /**

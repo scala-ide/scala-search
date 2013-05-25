@@ -29,19 +29,19 @@ import scala.tools.eclipse.testsetup.SDTTestUtils
 class IndexTest {
 
   import LuceneIndexTest._
-
+  
   /**
    * Tests index adding/removing
    */
 
   @Test def storeAndRetrieve() {
-
-    val config = new TestIndex with SourceIndexer {
+    val index = new TestIndex {
       override val base = INDEX_DIR
     }
+    val indexer = new SourceIndexer(index) 
 
     val source = scalaCompilationUnit(mkPath("org","example","ScalaClass.scala"))
-    config.indexScalaFile(source)
+    indexer.indexScalaFile(source)
 
     val expected = List(
       Occurrence("method",      source, 46,  Declaration),
@@ -55,7 +55,7 @@ class IndexTest {
 
     val interestingNames = List("method", "methodOne", "methodTwo", "methodThree")
 
-    val results = config.occurrencesInFile(
+    val results = index.occurrencesInFile(
         source.workspaceFile.getProjectRelativePath(),
         source.scalaProject)
 
@@ -66,16 +66,17 @@ class IndexTest {
 
   @Test def deleteOccurrences() {
 
-    val config = new TestIndex with SourceIndexer {
+    val index = new TestIndex {
       override val base = INDEX_DIR
     }
+    val indexer = new SourceIndexer(index)
 
     val source = scalaCompilationUnit(mkPath("org","example","ScalaClass.scala"))
-    config.indexScalaFile(source)
+    indexer.indexScalaFile(source)
 
-    config.removeOccurrencesFromFile(source.workspaceFile.getProjectRelativePath(), source.scalaProject)
+    index.removeOccurrencesFromFile(source.workspaceFile.getProjectRelativePath(), source.scalaProject)
 
-    val results = config.occurrencesInFile(
+    val results = index.occurrencesInFile(
         source.workspaceFile.getProjectRelativePath(),
         source.scalaProject)
 
@@ -141,26 +142,28 @@ class IndexTest {
    */
 
   @Test def canFindPotentialOccurrencesInProject {
-    val config = new Index with SourceIndexer {
+    val index = new Index {
       override val base = INDEX_DIR
     }
+    val indexer = new SourceIndexer(index) 
 
-    config.indexProject(projectA)
+    indexer.indexProject(projectA)
 
-    val (results, failures) = config.findOccurrences("foo", Set(projectA))
+    val (results, failures) = index.findOccurrences("foo", Set(projectA))
     assertEquals(1, results.size)
     assertEquals(0, failures.size)
   }
 
   @Test def canFindPotentialOccurrencesInProjectClosure {
-    val config = new Index with SourceIndexer {
+    val index = new Index {
       override val base = INDEX_DIR
     }
+    val indexer = new SourceIndexer(index)
 
-    config.indexProject(projectA)
-    config.indexProject(projectB)
+    indexer.indexProject(projectA)
+    indexer.indexProject(projectB)
 
-    val (results, failures) = config.findOccurrences("foo", Set(projectA, projectB))
+    val (results, failures) = index.findOccurrences("foo", Set(projectA, projectB))
     assertEquals(2, results.size)
   }
 
@@ -183,7 +186,7 @@ class IndexTest {
   @Test def oneProjectTestFailureDoesntAffectTheOthers {
     // Test that you can get search results for one project even though
     // searching in another project failed
-    val config = new Index with SourceIndexer {
+    val index = new Index {
       override val base = INDEX_DIR
       override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
         if (project.underlying.getName == projectA.underlying.getName) {
@@ -192,11 +195,12 @@ class IndexTest {
         else super.withSearcher(project)(f)
       }
     }
+    val indexer = new SourceIndexer(index)
 
-    config.indexProject(projectA)
-    config.indexProject(projectB)
+    indexer.indexProject(projectA)
+    indexer.indexProject(projectB)
 
-    val (results, failures) = config.findOccurrences("foo", Set(projectA, projectB))
+    val (results, failures) = index.findOccurrences("foo", Set(projectA, projectB))
     assertEquals(1, results.size)
     assertEquals(1, failures.size)
     assertEquals(BrokenIndex(projectA), failures.head)
@@ -225,7 +229,7 @@ object LuceneIndexTest extends TestProjectSetup("lucene_index_test_project", bun
 
   val INDEX_DIR = new Path(mkPath("target","lucene-index-test"))
 
-  def mockedWriterConfig(ex: Exception) = new TestIndex with SourceIndexer {
+  def mockedWriterConfig(ex: Exception): TestIndex = new TestIndex {
 
     override val base = INDEX_DIR
 
@@ -242,7 +246,7 @@ object LuceneIndexTest extends TestProjectSetup("lucene_index_test_project", bun
     }
   }
 
-  def mockedReaderConfig = new TestIndex with SourceIndexer {
+  def mockedReaderConfig: TestIndex = new TestIndex {
 
     override val base = INDEX_DIR
 
