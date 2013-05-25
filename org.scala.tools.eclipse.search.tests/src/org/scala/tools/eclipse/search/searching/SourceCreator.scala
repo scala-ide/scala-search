@@ -41,7 +41,7 @@ trait SourceCreator {
      *
      * Note: The document has to be created with two markers (i.e. |)
      */
-    def isSameMethod(expected: Boolean): Unit = {
+    def isSame(expected: Boolean): Unit = {
       unit.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
         spc.comparator(Location(unit, markers(0))).map { comparator =>
@@ -53,7 +53,7 @@ trait SourceCreator {
       }((fail("Couldn't get source file")))
     }
 
-    def isSameMethodAs(other: ScalaDocument, expected: Boolean = true) = {
+    def isSameAs(other: ScalaDocument, expected: Boolean = true) = {
       val loc1 = Location(unit, markers.head)
       val loc2 = Location(other.unit, other.markers.head)
       unit.withSourceFile { (sf, pc) =>
