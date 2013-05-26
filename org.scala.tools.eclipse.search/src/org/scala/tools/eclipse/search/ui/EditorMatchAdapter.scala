@@ -13,9 +13,9 @@ class EditorMatchAdapter extends IEditorMatchAdapter with HasLogger {
 
   // Returns all matches that are contained in the element shown in the given editor.
   override def computeContainedMatches(result: AbstractTextSearchResult, editor: IEditorPart): Array[Match] = {
-    val results = result.getElements.map(_.asInstanceOf[Hit])
+    val hits = result.getElements.map(_.asInstanceOf[Hit])
     editor.getEditorInput() match {
-      case in: IFileEditorInput => results.filter(_.cu.workspaceFile == in.getFile).map(_.toMatch)
+      case in: IFileEditorInput => MatchAdatperHelper.matches(hits, in.getFile)
       case _ => Array()
     }
   }
@@ -23,7 +23,7 @@ class EditorMatchAdapter extends IEditorMatchAdapter with HasLogger {
   // Determines whether a match should be displayed in the given editor.
   override def isShownInEditor(m: Match, editor: IEditorPart) = {
     (m.getElement(), editor.getEditorInput()) match {
-      case (loc: Location, in: IFileEditorInput) => loc.cu.workspaceFile == in.getFile
+      case (hit: Hit, in: IFileEditorInput) => MatchAdatperHelper.existsAndMatches(hit, in.getFile)
       case _ => false
     }
   }
