@@ -37,15 +37,17 @@ class FinderTest {
     }
     new SourceIndexer(index)
   }
-  
+
   def anonymousFinder(index: Index): Finder =  new Finder(index, new LogErrorReporter)
-  
+
   @Test
   def canFindOccurrencesInSameProject = {
     val indexer = anonymousIndexer
     val finder = anonymousFinder(indexer.index)
     val project = Project("FinderTest")
 
+    val EXPECTED_HITS_COUNT = 2
+    val hitLatch = new CountDownLatch(EXPECTED_HITS_COUNT)
     val latch = new CountDownLatch(2)
     val observer = FileChangeObserver(project.scalaProject)(onAdded = _ => latch.countDown)
 
@@ -68,9 +70,12 @@ class FinderTest {
     @volatile var results = 0
     finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
       results += 1
+      hitLatch.countDown
     }
 
-    assertEquals(s"Checking references of method foo, Found ${results}", 2, results)
+    hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
+
+    assertEquals(s"Checking references of method foo, Found ${results}", EXPECTED_HITS_COUNT, results)
 
     project.delete
     observer.stop
@@ -83,6 +88,8 @@ class FinderTest {
 
     val project = Project("FinderTest-Apply")
 
+    val EXPECTED_HITS_COUNT = 3
+    val hitLatch = new CountDownLatch(EXPECTED_HITS_COUNT)
     val latch = new CountDownLatch(2)
     val observer = FileChangeObserver(project.scalaProject)(onAdded = _ => latch.countDown)
 
@@ -103,9 +110,12 @@ class FinderTest {
     @volatile var results = 0
     finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
       results += 1
+      hitLatch.countDown
     }
 
-    assertEquals(s"Checking references of method foo, Found ${results}", 3, results)
+    hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
+
+    assertEquals(s"Checking references of method foo, Found ${results}", EXPECTED_HITS_COUNT, results)
 
     project.delete
     observer.stop
@@ -120,6 +130,8 @@ class FinderTest {
 
     project2.addProjectsToClasspath(project1)
 
+    val EXPECTED_HITS_COUNT = 2
+    val hitLatch = new CountDownLatch(EXPECTED_HITS_COUNT)
     val latch = new CountDownLatch(2)
     val observer1 = FileChangeObserver(project1.scalaProject)(onAdded = _ => latch.countDown)
     val observer2 = FileChangeObserver(project2.scalaProject)(onAdded = _ => latch.countDown)
@@ -144,9 +156,12 @@ class FinderTest {
     @volatile var results = 0
     finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
       results += 1
+      hitLatch.countDown
     }
 
-    assertEquals(s"Checking references of method foo, Found ${results}", 2, results)
+    hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
+
+    assertEquals(s"Checking references of method foo, Found ${results}", EXPECTED_HITS_COUNT, results)
 
     project1.delete
     project2.delete
@@ -172,11 +187,12 @@ class FinderTest {
         } else super.withSearcher(project)(f)
       }
     }
-    val indexer = new SourceIndexer(index) 
+    val indexer = new SourceIndexer(index)
     val finder = anonymousFinder(index)
 
     project2.addProjectsToClasspath(project1)
 
+    val hitLatch = new CountDownLatch(2)
     val latch = new CountDownLatch(2)
     val observer1 = FileChangeObserver(project1.scalaProject)(onAdded = _ => latch.countDown)
     val observer2 = FileChangeObserver(project2.scalaProject)(onAdded = _ => latch.countDown)
@@ -201,8 +217,16 @@ class FinderTest {
     @volatile var hits = 0
     @volatile var failures = 0
     finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
-      hit = _ => hits += 1,
-      errorHandler = _ => failures += 1)
+      hit = _ => {
+        hits += 1
+        hitLatch.countDown
+      },
+      errorHandler = _ => {
+        failures += 1
+        hitLatch.countDown
+      })
+
+    hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
     assertEquals(s"Expected the search to find 1 hit, but found ${hits}", 1, hits)
     assertEquals(s"Expected the search to have 1 error, but got ${failures}", 1, failures)
@@ -226,6 +250,7 @@ class FinderTest {
 
     val project = Project("FinderTest-UntableableOccurrence")
 
+    val hitLatch = new CountDownLatch(2)
     val latch = new CountDownLatch(2)
     val observer = FileChangeObserver(project.scalaProject)(onAdded = _ => latch.countDown)
 
@@ -243,8 +268,16 @@ class FinderTest {
     @volatile var hits = 0
     @volatile var potentialHits = 0
     finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
-      hit = loc => hits += 1,
-      potentialHit = loc => potentialHits += 1)
+      hit = loc => {
+        hits += 1
+        hitLatch.countDown
+      },
+      potentialHit = loc => {
+        potentialHits += 1
+        hitLatch.countDown
+      })
+
+    hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
     assertEquals(s"Expected the search to find 1 hit, but found ${hits}", 1, hits)
     assertEquals(s"Expected the search to find 1 potential hit, but found ${potentialHits}", 1, potentialHits)
