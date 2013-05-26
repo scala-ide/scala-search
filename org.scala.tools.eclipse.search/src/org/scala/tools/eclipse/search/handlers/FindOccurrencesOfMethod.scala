@@ -29,16 +29,16 @@ import org.scala.tools.eclipse.search.searching.PotentialHit
 
 class FindOccurrencesOfMethod
   extends AbstractHandler
-     with DialogErrorReporter
      with HasLogger {
 
-  val finder: Finder = SearchPlugin.finder
+  private val finder: Finder = SearchPlugin.finder
+  private val reporter: ErrorReporter = new DialogErrorReporter
 
   override def execute(event: ExecutionEvent): Object = {
     for {
-      editor      <- Option(HandlerUtil.getActiveEditor(event)) onEmpty reportError("An editor has to be active")
-      scalaEditor <- editor.asInstanceOfOpt[ScalaSourceFileEditor] onEmpty reportError("Active editor wasn't a Scala editor")
-      selection   <- UIUtil.getSelection(scalaEditor) onEmpty reportError("You need to have a selection")
+      editor      <- Option(HandlerUtil.getActiveEditor(event)) onEmpty reporter.reportError("An editor has to be active")
+      scalaEditor <- editor.asInstanceOfOpt[ScalaSourceFileEditor] onEmpty reporter.reportError("Active editor wasn't a Scala editor")
+      selection   <- UIUtil.getSelection(scalaEditor) onEmpty reporter.reportError("You need to have a selection")
     } {
       val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
 
@@ -79,7 +79,7 @@ class FindOccurrencesOfMethod
           }
           override def getSearchResult(): ISearchResult = sr
         })
-      } else reportError("Sorry, find occurrences only supports methods for now")
+      } else reporter.reportError("Sorry, find occurrences only supports methods for now")
     }
     // According to the Eclipse docs we have to return null.
     null

@@ -59,7 +59,7 @@ case class BrokenIndex(project: ScalaProject) extends SearchFailure
  */
 trait Index extends HasLogger {
 
-  val base: IPath
+  def base: IPath
 
   def location(project: IProject): IPath = {
     base.append(project.getName())
