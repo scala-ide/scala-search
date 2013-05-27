@@ -60,8 +60,8 @@ trait SourceCreator {
         val spc = new SearchPresentationCompiler(pc)
         spc.comparator(loc1).map { comparator =>
           comparator.isSameAs(loc2) match {
-            case Same => assertEquals(true, expected)
-            case _ => assertEquals(false, expected)
+            case Same => assertEquals(expected, true)
+            case _ => assertEquals(expected, false)
           }
         }.getOrElse(fail("Couldn't get comparator for symbol"))
       }((fail("Couldn't get source file")))

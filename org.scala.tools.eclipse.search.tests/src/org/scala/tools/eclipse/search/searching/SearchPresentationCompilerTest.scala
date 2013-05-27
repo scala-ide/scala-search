@@ -215,6 +215,50 @@ class SearchPresentationCompilerTest {
     """} isSameMethod(false)
   }
 
+  @Test def isSameMethod_overloaded {
+    val sourceA = project.create("AskOption.scala") {"""
+      class AskOption {
+        def askO|ption(op: () => String): Option[String] = askOption(op, 10000)
+        def askOption(op: () => String, timeout: Int): Option[String] = None
+      }
+    """}
+
+    val sourceB = project.create("AskOptionUser.scala") {"""
+      object AskOptionUser {
+        val a = new AskOption
+        a.askO|ption { () =>
+          "hi there"
+        }
+      }
+    """}
+
+    sourceA.isSameMethodAs(sourceB, true)
+  }
+
+  @Test def isSameMethod_overloadedWithExplicitTypeParam {
+    // Make sure that we ask the compiler for the right tree
+    // in case of overloaded methods where the invocation has
+    // explicit type parameters. See
+    // SearchPresentationComiler.resolveOverloadedSymbol
+    val sourceA = project.create("AskOption.scala") {"""
+      class AskOption {
+        def askO|ption[A](op: () => A): Option[A] = askOption(op, 10000)
+        def askOption[A](op: () => A, timeout: Int): Option[A] = None
+      }
+    """}
+
+    val sourceB = project.create("AskOptionUser.scala") {"""
+      object AskOptionUser {
+        val a = new AskOption
+        a.askO|ption[String] { () =>
+          "hi there"
+        }
+      }
+    """}
+
+    sourceA.isSameMethodAs(sourceB, true)
+  }
+
   @Test
   def isSameMethod_partiallyAppliedMethod {
     project.create("PartiallyApplied.scala") {"""
