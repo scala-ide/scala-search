@@ -7,6 +7,7 @@ import scala.tools.nsc.interactive.Response
 import scala.reflect.internal.util.OffsetPosition
 import scala.tools.eclipse.logging.HasLogger
 import org.scala.tools.eclipse.search.indexing.Occurrence
+import scala.reflect.internal.util.RangePosition
 
 sealed abstract class ComparisionResult
 case object Same extends ComparisionResult
@@ -90,6 +91,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   def comparator(loc: Location): Option[SymbolComparator] = {
     loc.cu.withSourceFile({ (sf, pc) =>
       symbolAt(loc, sf) match {
+
         case FoundSymbol(symbol) => Some(new SymbolComparator {
           def isSameAs(otherLoc: Location): ComparisionResult = {
             otherLoc.cu.withSourceFile({ (otherSf, otherPc) =>
@@ -99,34 +101,15 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
                   (for {
                     imported   <- importSymbol(otherSpc)(symbol2)
                     isSame     <- isSameMethod(symbol, imported)
-                    overloaded <- pc.askOption { () => imported.isOverloaded } onEmpty logger.debug("Timed out on overloaded check")
                   } yield {
-                    // The following check shouldn't be needed when/if we fix the compiler bug that makes `askTypeAt`
-                    // return overloaded method symbols rather than precise method symbols. Until then, we check that
-                    // at least one of the overloaded alternatives match the symbol we're looking for. If one of the
-                    // alternative matches we register the occurrence as a Possible match (It's not a ExactMatch as it
-                    // might not be the right overloaded method that is appearing at the location).
-                    //
-                    // This check takes care of cases where the symbol we found is an overloaded method with same name
-                    // as the one we're looking for BUT is in fact not a match, i.e.
-                    //
-                    //   object A { def foo(x: String): String = x ; def foo(y: Int): String = y.toString }
-                    //   object B { def foo(x: String): String = x ; def foo(y: Int): String = y.toString }
-                    //
-                    // If we search for B.foo it could potentially show A.foo if we don't check if one of the alternatives
-                    // match.
-                    if (overloaded) {
-                      val oneOverloadedMatches = pc.askOption { () => imported.alternatives } map { alternatives =>
-                        alternatives.map(isSameMethod(symbol,_)).flatten.foldLeft(false)( _ || _)
-                      }
-                      if (oneOverloadedMatches.getOrElse(false)) PossiblySame else NotSame
-                    } else if(isSame) Same else NotSame
+                    if(isSame) Same else NotSame
                   }) getOrElse NotSame
                 case _ => PossiblySame
               }
             })(PossiblySame)
           }
         })
+
         case _ => None
       }
     })(None)
@@ -137,10 +120,103 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    *
    * The source file needs not be loaded in the presentation compiler prior to
    * this call.
+   *
+   * This resolves overloaded method symbols. @See resolveOverloadedSymbol for
+   * more information.
    */
   protected def symbolAt[A](loc: Location, cu: SourceFile): SymbolRequest = {
     val typed = new Response[pc.Tree]
     val pos = new OffsetPosition(cu, loc.offset)
+    pc.askTypeAt(pos, typed)
+    typed.get.fold(
+      tree => {
+        (for {
+          (overloaded, treePos) <- pc.askOption { () => (tree.symbol.isOverloaded, tree.pos) }
+          if overloaded
+        } yield {
+          resolveOverloadedSymbol(treePos, cu)
+        }).getOrElse(filterNoSymbols(tree.symbol))
+      },
+      err => {
+        logger.debug(err)
+        NotTypeable
+      })
+  }
+
+  /**
+   * If the symbol at the given location is known to be an overloaded symbol
+   * this will resolve the overloaded symbol by asking the compiler to type-check
+   * a bit more of the tree at the given location.
+   *
+   * This is needed because `askTypeAt` will only return the smallest fully attributed
+   * tree that encloses position. Consider the following example
+   *
+   *   def askOption[A](op: () => A): Option[A] = askOption(op, 10000)
+   *   def askOption[A](op: () => A, timeout: Int): Option[A] = None
+   *
+   *   askOption { () =>
+   *     ...
+   *   }
+   *
+   *  If the position the beginning of the `askOption` identifier (the invocation) then
+   *  the presentation compiler will only type-check the receiver (the Select node) and
+   *  not the arguments and thus will not resolve the overloaded method symbol.
+   *
+   *  We fix this by asking the compiler to type-check more of the tree using a
+   *  RangePosition.
+   *
+   */
+  private def resolveOverloadedSymbol[A](treePos: pc.Position, cu: SourceFile): SymbolRequest = {
+
+    // There are two cases we need to consider then figuring out how
+    // far the RangePosition should reach.
+    //
+    // 1. It is a normal Apply.
+    //
+    //    In this case we simply extend the RangePosition 1 char past
+    //    the identifier, i.e.
+    //
+    //      {foo(}x)
+    //
+    //    where {} represents the RangePosition.
+    //
+    // 2. It's a TypeApply, i.e. a parametric method where the type
+    //    parameters have been supplied explicitly.
+    //
+    //    In this case we have to extend the RangePosition 2 chars
+    //    past the end of the last type parameter,i.e.
+    //
+    //      {foo[String,Int](}
+    //
+
+    val EXTRA_SPACE = 1
+    val TYPE_PARAMS_END_CHAR = 1
+
+    val posInCaseOfTypeApply = pc.withParseTree(cu) { parsed =>
+      import pc._
+      // We want to find the TypeApply that contains the Select
+      // node.
+      class TypeApplyLocator(pos: Position) extends Locator(pos) {
+        override def isEligible(t: Tree) = t.isInstanceOf[TypeApply] && super.isEligible(t)
+      }
+
+      new TypeApplyLocator(treePos.pos).locateIn(parsed) match {
+        case TypeApply(_, types) => {
+          val max = types.map(_.pos.endOrPoint).max
+          Some((treePos.pos.point, max + EXTRA_SPACE + TYPE_PARAMS_END_CHAR))
+        }
+        case x => None
+      }
+    }
+
+    lazy val posInCaseOfApply = (
+        treePos.pos.point,
+        treePos.pos.endOrPoint + EXTRA_SPACE)
+
+    val (start, end) = posInCaseOfTypeApply.getOrElse(posInCaseOfApply)
+
+    val typed = new Response[pc.Tree]
+    val pos = new RangePosition(cu, start, start, end)
     pc.askTypeAt(pos, typed)
     typed.get.fold(
       tree => {
@@ -202,6 +278,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    */
   private def isSameMethod(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
     pc.askOption { () =>
+
       lazy val isInHiearchy = s1.owner.isSubClass(s2.owner) ||
                               s2.owner.isSubClass(s1.owner)
 
