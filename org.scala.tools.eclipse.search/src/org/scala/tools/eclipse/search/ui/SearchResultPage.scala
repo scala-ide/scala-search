@@ -1,4 +1,5 @@
-package org.scala.tools.eclipse.search.ui
+package org.scala.tools.eclipse.search
+package ui
 
 import org.eclipse.jface.viewers.TableViewer
 import org.eclipse.jface.viewers.TreeViewer
@@ -35,7 +36,7 @@ class SearchResultPage
 
   private val contentProvider = new ResultContentProvider(this)
   private val labelProvider = new ResultLabelProvider
-  
+
   private val reporter = new DialogErrorReporter
 
   def view: StructuredViewer = {
@@ -72,17 +73,18 @@ class SearchResultPage
   }
 
   override protected def handleOpen(event: OpenEvent): Unit = {
-    val firstElement = event.getSelection().asInstanceOf[IStructuredSelection].getFirstElement()
-    if (firstElement.isInstanceOf[Hit]) {
-      val result = firstElement.asInstanceOf[Hit]
-      val page = JavaPlugin.getActivePage()
-      val file = result.cu.workspaceFile
+    (for {
+      selection <- event.getSelection().asInstanceOfOpt[IStructuredSelection]
+      hit       <- selection.getFirstElement().asInstanceOfOpt[Hit] onEmpty logger.debug("Unexpected selection type")
+      page      <- Option(JavaPlugin.getActivePage) onEmpty reporter.reportError("Couldn't get active page")
+      file      <- MatchAdatperHelper.getWorkspaceFile(hit) onEmpty reporter.reportError("File no longer exists")
       val input = new FileEditorInput(file)
-      val desc = IDE.getEditorDescriptor(file.getName())
-      val part = IDE.openEditor(page, input, desc.getId())
-      val editor = part.asInstanceOfOpt[ScalaSourceFileEditor].get
-      editor.selectAndReveal(result.offset, result.word.length)
-    } else {
+      desc      <- Option(IDE.getEditorDescriptor(file.getName()))
+      part      <- Option(IDE.openEditor(page, input, desc.getId()))
+      editor <- part.asInstanceOfOpt[ScalaSourceFileEditor]
+    } yield {
+      editor.selectAndReveal(hit.offset, hit.word.length)
+    }) getOrElse {
       super.handleOpen(event)
     }
   }
