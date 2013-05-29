@@ -11,14 +11,23 @@ class FileMatchAdapter extends IFileMatchAdapter {
 
   // Returns an array with all matches contained in the given file in the given search result.
   def computeContainedMatches(result: AbstractTextSearchResult, file: IFile): Array[Match] = {
-    val results = result.getElements.map(_.asInstanceOf[Hit])
-    results.filter(_.cu.workspaceFile == file).map(_.toMatch)
+    val hits = result.getElements.map(_.asInstanceOf[Hit])
+    MatchAdatperHelper.matches(hits, file)
   }
 
   // Returns the file associated with the given element (usually the file the element is contained in).
   def getFile(element: Object): IFile = {
-    val location = element.asInstanceOf[Hit]
-    location.cu.workspaceFile
+    //  Doc: If the element is not associated with a file, 
+    //       this method should return null.
+    //
+    //  So we return null if
+    //    - We don't recognize the object
+    //    - The file has been deleted since the search was executed or
+    //      the project that contains the file is now closed.
+    element match {
+      case hit: Hit => MatchAdatperHelper.getWorkspaceFile(hit).getOrElse(null)
+      case _ => null
+    }
   }
 
 }

@@ -46,10 +46,12 @@ class SearchResult(query: ISearchQuery) extends AbstractTextSearchResult {
    */
   def getTooltip(): String = query.getLabel
 
-  def resultsGroupedByFile = {
+  def resultsGroupedByFile: Map[String, Array[Hit]] = {
     // TODO: Cache this, for speed improvements
     val res = this.getElements.map(_.asInstanceOf[Hit])
-    res.groupBy(_.cu.workspaceFile.getProjectRelativePath().toOSString())
+
+    res.filter(MatchAdatperHelper.getWorkspaceFile(_).isDefined)
+       .groupBy(_.cu.workspaceFile.getProjectRelativePath().toOSString)
   }
 
 }
