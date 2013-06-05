@@ -18,6 +18,14 @@ trait SymbolComparator {
   def isSameAs(loc: Location): ComparisionResult
 }
 
+object SymbolComparator {
+  def apply(f: Location => ComparisionResult): SymbolComparator = {
+    new SymbolComparator {
+      override def isSameAs(loc: Location) = f(loc)
+    }
+  }
+}
+
 /**
  * Encapsulates PC logic. Makes it easier to control where the compiler data
  * structures are used and thus make sure that we conform to the synchronization
@@ -45,43 +53,53 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   }
 
   /**
+   * Used to check if the entity at the given location is something we
+   * can find occurrences of. This is useful until we support all kinds
+   * of entities.
+   */
+  def canFindReferences(loc: Location): Boolean = {
+    loc.cu.withSourceFile({ (sf, pc) =>
+      symbolAt(loc, sf) match {
+        case FoundSymbol(symbol) => pc.askOption { () =>
+          symbol.isVal ||
+          symbol.isMethod ||
+          symbol.isConstructor ||
+          symbol.isVar
+        }.getOrElse(false)
+        case _ => false
+      }
+    })(false)
+  }
+
+  /**
    * The name of the symbol at the given location and all the other
    * valid names for that symbol. For example Foo.apply() and Foo() are
    * both valid names for an invocation of Foo.apply
    */
   def possibleNamesOfEntityAt(loc: Location): Option[List[String]] = {
-    loc.cu.withSourceFile({ (sf, pc) =>
-      symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) =>
-          pc.askOption(() => symbol.nameString).flatMap {
-            case n@"apply" =>
-              // TODO: Should use decodedName #1001723
-              pc.askOption(() => symbol.owner.nameString).map { ownerName =>
-                List(n, ownerName)
-              }
-            case n => Some(List(n))
-          }
-        case _ => None
-      }
-    })(None)
-  }
+    loc.cu.withSourceFile({ (sf, _) =>
+      (symbolAt(loc, sf) match {
+        // TODO: Should use decodedName #1001723
+        case FoundSymbol(symbol) => (pc.askOption { () =>
 
-  /**
-   * Checks is a symbols is a method or constructor. This is
-   * needed such that we can restrict the FindOccurrenceOfMethod
-   * to only work for methods until the rest of the entities are
-   * suppored.
-   */
-  def isMethod(loc: Location): Boolean = {
-    loc.cu.withSourceFile({ (sf, pc) =>
-      symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) =>
-          pc.askOption { () =>
-            symbol.isMethod || symbol.isConstructor
-          }.getOrElse(false)
-        case _ => false
-      }
-    })(false)
+          if (symbol.isVar || symbol.isSetter) {
+            val (setterName, getterName) = if (pc.nme.isSetterName(symbol.name)) {
+              (symbol.name.toString, pc.nme.setterToGetter(symbol.name.toTermName).toString.trim)
+            } else {
+              val n = if(pc.nme.isLocalName(symbol.name)) {
+                pc.nme.localToGetter(symbol.name.toTermName)
+              } else symbol.name.toString
+              (pc.nme.getterToSetter(symbol.name.toTermName).toString.replace(" ",""), n.toString)
+            }
+            List(setterName, getterName)
+
+          } else if (symbol.nameString == "apply") {
+            List(symbol.nameString, symbol.owner.nameString)
+          } else List(symbol.nameString)
+        })
+        case _ => None
+      })
+    })(None)
   }
 
   /**
@@ -89,27 +107,31 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    * used to see if symbols at other locations are the same as this symbol.
    */
   def comparator(loc: Location): Option[SymbolComparator] = {
-    loc.cu.withSourceFile({ (sf, pc) =>
+
+    def compare(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = pc.askOption { () =>
+      if (s1.isVal || s1.isGetter) isSameVal(s1, s2)
+      else if (s1.isVar || s1.isGetter || s1.isSetter) isSameVar(s1, s2)
+      else if (s1.isMethod) isSameMethod(s1.asMethod, s2)
+      else isSameSymbol(s1, s2)
+    } flatten
+
+    def createComparator(symbol: pc.Symbol) = SymbolComparator { otherLoc =>
+      otherLoc.cu.withSourceFile { (otherSf, otherPc) =>
+        val otherSpc = new SearchPresentationCompiler(otherPc)
+        otherSpc.symbolAt(otherLoc, otherSf) match {
+          case otherSpc.FoundSymbol(symbol2) => (for {
+            imported <- importSymbol(otherSpc)(symbol2)
+            isSame   <- compare(symbol,imported)
+            result   = if(isSame) Same else NotSame
+          } yield result) getOrElse NotSame
+          case _ => PossiblySame
+        }
+      }(PossiblySame)
+    }
+
+    loc.cu.withSourceFile({ (sf, _) =>
       symbolAt(loc, sf) match {
-
-        case FoundSymbol(symbol) => Some(new SymbolComparator {
-          def isSameAs(otherLoc: Location): ComparisionResult = {
-            otherLoc.cu.withSourceFile({ (otherSf, otherPc) =>
-              val otherSpc = new SearchPresentationCompiler(otherPc)
-              otherSpc.symbolAt(otherLoc, otherSf) match {
-                case otherSpc.FoundSymbol(symbol2) =>
-                  (for {
-                    imported   <- importSymbol(otherSpc)(symbol2)
-                    isSame     <- isSameMethod(symbol, imported)
-                  } yield {
-                    if(isSame) Same else NotSame
-                  }) getOrElse NotSame
-                case _ => PossiblySame
-              }
-            })(PossiblySame)
-          }
-        })
-
+        case FoundSymbol(symbol) => Some(createComparator(symbol))
         case _ => None
       }
     })(None)
@@ -269,37 +291,116 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   }
 
   /**
-   * Check if symbols `s1` and `s2` are describing the same method. We consider two
-   * methods to be the same if
+   * Check if `s2` is valid reference to the symbol `s1`.
+   *
+   * Given that we merge overridden members we need to consider
+   * that a def may also be a valid reference to a val since a
+   * method can be overridden by a val.
+   *
+   * Example:
+   *
+   *   class A {
+   *     def foo = "A"
+   *   }
+   *   class B extends A {
+   *     override val foo = "B"
+   *   }
+   *
+   * Now if we search for occurrence of B.foo we will at some point
+   * compare an occurrence of A.foo with B.foo.
+   *
+   * @note it should always be called within the Presentation Compiler Thread.
+   */
+  private def isSameVal(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
+    if (s2.isVal || s2.isGetter) isSameSymbol(s1.getter, s2.getter)
+    else isSameSymbol(s1.getter, s2)
+  }
+
+  /**
+   * Check if `s2` is valid reference to the symbol `s1`.
+   *
+   * Given that we merge overridden members we need to consider
+   * that a def may also be a valid reference to a var since a
+   * var can override a method
+   *
+   * Example:
+   *
+   *   abstract class A {
+   *     def foo: String
+   *     def foo_=(x: String)
+   *   }
+   *   class B extends A {
+   *     var foo = "B"
+   *   }
+   *
+   * @note it should always be called within the Presentation Compiler Thread.
+   */
+  private def isSameVar(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
+    // S1 can be the underlying field, the setter or the getter.
+    // S2 can be the underlying field, a setter, a getter OR a method.
+    if (s2.isVar || s2.isSetter || s2.isGetter) {
+      isSameSymbol(s1.getter, s2.getter)
+    } else {
+      if (pc.nme.isSetterName(s2.name)) isSameSymbol(s1.setter, s2) else isSameSymbol(s1.getter, s2)
+    }
+  }
+
+  /**
+   * Check if `s2` is a valid reference to the method `s1`.
+   *
+   * Given that we merge overridden members and that methods can be
+   * overridden by methods, vars and vals we need to consider all
+   * three cases.
+   *
+   * See docs of `isSameVar` and `isSameVal` for example of this.
+   *
+   * @note it should always be called within the Presentation Compiler Thread.
+   *
+   */
+  private def isSameMethod(s1: pc.MethodSymbol, s2: pc.Symbol): Option[Boolean] = {
+    // S1 is always a method
+    // S2 can be a be a method, a var or a val. For vars/val it can be the underlying
+    //    field, the getter or the setter.
+    if (pc.nme.isSetterName(s1.name)) {
+      if (s2.isVar || s2.isGetter) isSameSymbol(s1, s2.setter)
+      else isSameSymbol(s1,s2)
+    } else {
+      if (s2.isSetter || s2.isVar || s2.isVal) isSameSymbol(s1, s2.getter)
+      else isSameSymbol(s1,s2)
+    }
+  }
+
+  /**
+   * Check if symbols `s1` and `s2` are describing the same symbol. We consider two
+   * symbols to be the same if
    *
    *  - They have the same name
    *  - s1.owner and s2.owner are in the same hierarchy
    *  - They have the same type signature or one is overriding the other
+   *
+   * Now if the symbols have the same name and are in the same hierarchy but the
+   * type-signature doesn't match we check if one symbol is overriding the other.
+   * The reason for this is that the signature might contain references to this.type.
+   *
+   * In the case of comparing vals or vars the caller of this method has to make
+   * sure the the appropriate symbols are compared, e.g. that both S1 and S2
+   * are setters.
    */
-  private def isSameMethod(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
+  private def isSameSymbol(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
     pc.askOption { () =>
 
       lazy val isInHiearchy = s1.owner.isSubClass(s2.owner) ||
                               s2.owner.isSubClass(s1.owner)
 
-      lazy val hasSameName = {
-        def getName(s: pc.Symbol)= {
-          if (pc.nme.isSetterName(s.name))
-            pc.nme.setterToGetter(s.name.toTermName)
-          else if(pc.nme.isLocalName(s.name))
-            pc.nme.localToGetter(s.name.toTermName)
-          else s.name
-        }
-        getName(s1) == getName(s2)
-      }
+      lazy val hasSameName = s1.name == s2.name
 
       lazy val hasSameTypeSignature = s1.typeSignature =:= s2.typeSignature
 
       // If s1 and s2 are defined in the same class the owner will be the same
       // thus s1.overriddenSymbol(S2.owner) will actually return s1.
       lazy val isOverridden = s1.owner != s2.owner &&
-                             (s1.overriddenSymbol(s2.owner) != pc.NoSymbol ||
-                              s2.overriddenSymbol(s1.owner) != pc.NoSymbol)
+                             (s1.overriddenSymbol(s2.owner) == s2 ||
+                              s2.overriddenSymbol(s1.owner) == s1)
 
       (s1 == s2) || // Fast-path.
       hasSameName &&

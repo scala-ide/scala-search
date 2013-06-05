@@ -27,7 +27,7 @@ import scala.tools.eclipse.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.ExactHit
 import org.scala.tools.eclipse.search.searching.PotentialHit
 
-class FindOccurrencesOfMethod
+class FindOccurrences
   extends AbstractHandler
      with HasLogger {
 
@@ -42,13 +42,12 @@ class FindOccurrencesOfMethod
     } {
       val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
 
-      val (name, isMethod) = scalaEditor.getInteractiveCompilationUnit.withSourceFile { (_, pc) =>
+      val (name, supported) = scalaEditor.getInteractiveCompilationUnit.withSourceFile { (_, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        (spc.nameOfEntityAt(loc), spc.isMethod(loc))
+        (spc.nameOfEntityAt(loc), spc.canFindReferences(loc))
       }(None, false)
 
-      // Only supports methods for now.
-      if (isMethod) {
+      if (supported) {
         NewSearchUI.runQueryInBackground(new ISearchQuery(){
 
           val sr = new SearchResult(this)

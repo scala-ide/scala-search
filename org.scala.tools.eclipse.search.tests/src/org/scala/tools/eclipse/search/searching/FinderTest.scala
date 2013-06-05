@@ -121,6 +121,50 @@ class FinderTest {
     observer.stop
   }
 
+  @Test def canFindOccurrencesOfExplicitSetters = {
+
+    val indexer = anonymousIndexer
+    val finder = anonymousFinder(indexer.index)
+
+    val project = Project("FinderTest-CanCompareExplicitSetter")
+
+    val latch = new CountDownLatch(1)
+    val hitLatch = new CountDownLatch(4)
+    val observer = FileChangeObserver(project.scalaProject)(onAdded = _ => latch.countDown)
+
+    val sourceA = project.create("CanCompareExplicitSetter.scala") {"""
+      object A {
+        var varia|ble: String = "test"
+      }
+      object B {
+        A.variab|le_=("foo")
+      }
+    """}
+
+    latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
+
+    indexer.indexProject(project.scalaProject)
+
+    @volatile var resultsForGetter = 0
+    @volatile var resultsForSetter = 0
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(0))) { loc =>
+      resultsForGetter += 1
+      hitLatch.countDown
+    }
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(1))) { loc =>
+      resultsForSetter += 1
+      hitLatch.countDown
+    }
+
+    hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
+
+    assertEquals(s"Checking references of getter, Found ${resultsForGetter}", 2, resultsForGetter)
+    assertEquals(s"Checking references of setter, Found ${resultsForSetter}", 2, resultsForSetter)
+
+    project.delete
+    observer.stop
+  }
+
   @Test
   def canFindOccurrencesInDifferentProjects = {
     val indexer = anonymousIndexer
