@@ -26,6 +26,7 @@ import scala.tools.eclipse.util.Utils.any2optionable
 import scala.tools.eclipse.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.ExactHit
 import org.scala.tools.eclipse.search.searching.PotentialHit
+import scala.tools.eclipse.javaelements.ScalaSourceFile
 
 class FindOccurrences
   extends AbstractHandler
@@ -59,10 +60,10 @@ class FindOccurrences
           override def canRunInBackground(): Boolean = true
 
           override def getLabel: String =
-            s"'${name.getOrElse("selection")}' - ${hitsCount} exact matches, $potentialHitsCount potential matches. Total ${hitsCount+potentialHitsCount} "
+            s"'${name.getOrElse("selection")}' - ${hitsCount} exact matches, $potentialHitsCount potential matches. Total ${hitsCount+potentialHitsCount}"
 
           override def run(monitor: IProgressMonitor): IStatus = {
-            finder.occurrencesOfEntityAt(loc)(
+            finder.occurrencesOfEntityAt(loc, monitor)(
                 hit = (r: ExactHit) => {
                   hitsCount += 1
                   sr.addMatch(r.toMatch)
