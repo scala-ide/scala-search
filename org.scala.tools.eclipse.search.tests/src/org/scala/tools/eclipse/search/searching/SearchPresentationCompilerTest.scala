@@ -561,6 +561,41 @@ class SearchPresentationCompilerTest {
     """} isSame(true)
   }
 
+  /**------------------------*
+   * possibleNamesOfEntityAt *
+   * ------------------------*/
+
+  @Test
+  def possibleNamesOfEntityAt_worksForVarDefinition = {
+    project.create("PossibleNamesOfEnityAtWorksForGetter.scala") {"""
+      class A {
+        var variab|le: String = "Test"
+      }
+    """} expectedNames(List("variable_=","variable"))
+  }
+
+  @Test
+  def possibleNamesOfEntityAt_worksForSetter = {
+    project.create("PossibleNamesOfEnityAtWorksForSetter.scala") {"""
+      class A {
+        var variab|le: String = "Test"
+        var|iable = "Testing"
+      }
+    """} expectedNames(List("variable_=", "variable"))
+  }
+
+  @Test
+  def possibleNamesOfEntityAt_worksForApply = {
+    project.create("PossibleNamesOfEnityAtWorksForApply.scala") {"""
+      object A {
+        def apply(x: String) = x
+      }
+      object Using {
+        A.appl|y("test")
+      }
+    """} expectedNames(List("apply","A"))
+  }
+
   /**----------------------*
    * Various               *
    * ----------------------*/

@@ -21,6 +21,14 @@ trait SourceCreator {
       } (fail("Couldn't get Scala source file"))
     }
 
+    def expectedNames(names: List[String]): Unit = {
+      unit.withSourceFile { (sf, pc) =>
+        val spc = new SearchPresentationCompiler(pc)
+        val foundnames = spc.possibleNamesOfEntityAt(Location(unit, markers.head))
+        assertEquals(names, foundnames.getOrElse(Nil))
+      } (fail("Couldn't get Scala source file"))
+    }
+
     def expectedNoSymbol: Unit = {
       unit.withSourceFile { (sf, pc) =>
         val spc = new TestSearchPresentationCompiler(pc)

@@ -46,7 +46,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   def nameOfEntityAt(loc: Location): Option[String] = {
     loc.cu.withSourceFile({ (sf, pc) =>
       symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) => pc.askOption(() => symbol.nameString)
+        case FoundSymbol(symbol) => pc.askOption(() => symbol.decodedName.toString)
         case _ => None
       }
     })(None)
@@ -77,16 +77,15 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    * both valid names for an invocation of Foo.apply
    */
   def possibleNamesOfEntityAt(loc: Location): Option[List[String]] = {
-    // TODO: Should use decodedName #1001723
 
     def namesForValOrVars(symbol: pc.Symbol) = {
       val (setterName, getterName) = {
         if (pc.nme.isSetterName(symbol.name)) {
-          (symbol.name, pc.nme.setterToGetter(symbol.name.toTermName))
+          (symbol.decodedName, pc.nme.setterToGetter(symbol.name.toTermName).decodedName)
         } else {
           val getter = if(pc.nme.isLocalName(symbol.name)) pc.nme.localToGetter(symbol.name.toTermName)
                        else symbol.name
-          (pc.nme.getterToSetter(getter.toTermName), getter)
+          (pc.nme.getterToSetter(getter.toTermName).decodedName, getter.decodedName)
         }
       }
 
@@ -94,13 +93,13 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
     }
 
     def namesForApply(symbol: pc.Symbol) = {
-      List(symbol.nameString, symbol.owner.nameString)
+      List(symbol.decodedName.toString, symbol.owner.decodedName.toString)
     }
 
     def names(symbol: pc.Symbol) = pc.askOption { () =>
       if (isValOrVar(symbol)) namesForValOrVars(symbol)
       else if (symbol.nameString == "apply") namesForApply(symbol)
-      else List(symbol.nameString)
+      else List(symbol.decodedName.toString)
     }
 
     loc.cu.withSourceFile({ (sf, _) =>
