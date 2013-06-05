@@ -28,13 +28,15 @@ class ProjectFinder {
       }
 
       all
-    } else Set()
+    } else Set.empty
   }
 
   private def refs(project: IProject): Seq[IProject] = {
-    val referenced  = project.getReferencedProjects
-    val referencing = project.getReferencingProjects
-    (referenced ++ referencing)
+    if(project.exists()) {
+      val referenced  = project.getReferencedProjects
+      val referencing = project.getReferencingProjects
+      (referenced ++ referencing)
+    }
+    else Seq.empty
   }
-
 }
