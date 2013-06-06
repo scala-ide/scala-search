@@ -8,6 +8,8 @@ import scala.reflect.internal.util.OffsetPosition
 import scala.tools.eclipse.logging.HasLogger
 import org.scala.tools.eclipse.search.indexing.Occurrence
 import scala.reflect.internal.util.RangePosition
+import scala.tools.eclipse.javaelements.ScalaCompilationUnit
+import org.scala.tools.eclipse.search.indexing.Declaration
 
 sealed abstract class ComparisionResult
 case object Same extends ComparisionResult
@@ -123,6 +125,44 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
         case _ => None
       })
     })(None)
+  }
+
+  /**
+   * Given a location, find the declaration that contains the
+   * given location. Consider the example below
+   *
+   *   class A extends Foo with Bar
+   *
+   * If the location is Foo it will return the location of A.
+   */
+  def declarationContaining(loc: Location): Option[Occurrence] = {
+
+    loc.cu.withSourceFile { (sf,locPc) =>
+
+      import locPc._
+
+      class ModuleDefOrClassDefLocator(pos: Position) extends Locator(pos) {
+        override def isEligible(t: Tree) =
+          (t.isInstanceOf[ModuleDef] || t.isInstanceOf[ClassDef]) && super.isEligible(t)
+      }
+
+      def matches(name: Name, t: Tree) = Occurrence(
+        name.decoded.toString,
+        loc.cu.asInstanceOf[ScalaCompilationUnit],
+        t.pos.point,
+        Declaration,
+        t.pos.lineContent,
+        isInSuperPosition = false)
+
+      locPc.withParseTree(sf) { parsed =>
+        val pos = new OffsetPosition(sf, loc.offset)
+        new ModuleDefOrClassDefLocator(pos).locateIn(parsed) match {
+          case t @ ModuleDef(_, name, Template(supers, _, body)) => Some(matches(name, t))
+          case t @ ClassDef(_, name, _, Template(supers, ValDef(_,_,selfType,_), body)) => Some(matches(name, t))
+          case _ => None
+        }
+      }
+    }(None)
   }
 
   /**

@@ -2,6 +2,9 @@ package org.scala.tools.eclipse.search.indexing
 
 import scala.tools.eclipse.javaelements.ScalaSourceFile
 import org.scala.tools.eclipse.search.searching.Hit
+import scala.tools.eclipse.javaelements.ScalaCompilationUnit
+import org.scala.tools.eclipse.search.searching.ExactHit
+import org.scala.tools.eclipse.search.searching.PotentialHit
 
 /**
  * Represents the various kinds of occurrences that we deal with
@@ -18,12 +21,13 @@ case object Declaration extends OccurrenceKind
 case object Reference extends OccurrenceKind
 
 object LuceneFields {
-  val WORD            = "word"
-  val PATH            = "path"
-  val OFFSET          = "offset"
-  val OCCURRENCE_KIND = "occurrenceKind"
-  val PROJECT_NAME    = "project"
-  val LINE_CONTENT    = "lineContent"
+  val WORD                 = "word"
+  val PATH                 = "path"
+  val OFFSET               = "offset"
+  val OCCURRENCE_KIND      = "occurrenceKind"
+  val PROJECT_NAME         = "project"
+  val LINE_CONTENT         = "lineContent"
+  val IS_IN_SUPER_POSITION = "isInSuperPosition"
 }
 
 /**
@@ -32,18 +36,20 @@ object LuceneFields {
  */
 case class Occurrence(
     word: String,
-    file: ScalaSourceFile,
+    file: ScalaCompilationUnit,
     offset: Int, // char offset from beginning of file
     occurrenceKind: OccurrenceKind,
-    lineContent: String = "") {
+    lineContent: String = "",
+    isInSuperPosition: Boolean = false) {
 
   override def equals(other: Any) = other match {
-    // Don't compare lineCOntent 
+    // Don't compare lineCOntent
     case o: Occurrence =>
       word == o.word &&
       file == o.file &&
       offset == o.offset &&
-      occurrenceKind == o.occurrenceKind
+      occurrenceKind == o.occurrenceKind &&
+      isInSuperPosition == o.isInSuperPosition
     case _ => false
   }
 
@@ -52,5 +58,9 @@ case class Occurrence(
       file.file.file.getAbsolutePath(),
       offset.toString,
       occurrenceKind.toString)
+
+  def toPotentialHit = PotentialHit(file, word, lineContent, offset)
+
+  def toExactHit = ExactHit(file, word, lineContent, offset)
 
 }

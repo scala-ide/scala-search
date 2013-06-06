@@ -7,6 +7,8 @@ import org.junit.Assert._
 import org.eclipse.jdt.core.JavaCore
 import org.eclipse.jdt.core.IClasspathEntry
 import scala.Array.canBuildFrom
+import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
+import org.scala.tools.eclipse.search.indexing.Occurrence
 
 trait SourceCreator {
 
@@ -26,6 +28,14 @@ trait SourceCreator {
         val spc = new SearchPresentationCompiler(pc)
         val foundnames = spc.possibleNamesOfEntityAt(Location(unit, markers.head))
         assertEquals(names, foundnames.getOrElse(Nil))
+      } (fail("Couldn't get Scala source file"))
+    }
+
+    def expectedDeclarationNamed(name: String): Unit = {
+      unit.withSourceFile { (sf, pc) =>
+        val spc = new SearchPresentationCompiler(pc)
+        val occ = spc.declarationContaining(Location(unit, markers.head))
+        assertEquals(name, occ.map(_.word).getOrElse(""))
       } (fail("Couldn't get Scala source file"))
     }
 
@@ -75,6 +85,14 @@ trait SourceCreator {
       }((fail("Couldn't get source file")))
     }
 
+    def allOccurrences: Seq[Occurrence] = {
+      OccurrenceCollector.findOccurrences(unit).getOrElse(Nil)
+    }
+
+    def occurrencesThatMatch(f: Occurrence => Boolean): Seq[Occurrence] = {
+      allOccurrences.filter(f)
+    }
+
   }
 
   class Project private (val name: String) {
@@ -111,10 +129,15 @@ trait SourceCreator {
 
       var cursors = List[Int]()
 
+      var count = 0
       var offset = text.indexOf(CaretMarker)
       while (offset != -1) {
-        cursors = cursors :+ offset
+        // Subtract the index by the number of carets
+        // that preceded this one as they won't show
+        // up in the final source.
+        cursors = cursors :+ (offset - count)
         offset = text.indexOf(CaretMarker, offset+1)
+        count += 1
       }
 
       val cleanedText = text.filterNot(_ == CaretMarker).mkString

@@ -37,6 +37,7 @@ import org.eclipse.core.resources.IFile
 import scala.tools.eclipse.ScalaProject
 import scala.util.Success
 import scala.util.Failure
+import scala.collection.mutable.ArraySeq
 
 trait SearchFailure
 case class BrokenIndex(project: ScalaProject) extends SearchFailure
@@ -112,6 +113,21 @@ trait Index extends HasLogger {
   }
 
   /**
+   * Search the projects for all occurrences of the `word` that are in super-position, i.e.
+   * mentioned as a super-class or self-type.
+   */
+  def findOccurrencesInSuperPosition(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+
+    val query = new BooleanQuery()
+    query.add(new TermQuery(Terms.isInSuperPosition), BooleanClause.Occur.MUST)
+    query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
+
+    val resuts = queryProjects(query, projects)
+
+    groupSearchResults(resuts.seq)
+  }
+
+  /**
    * Search the relevant project indices for all occurrences of the given words.
    *
    * This will return a sequence of all the occurrences it found in the index and a
@@ -119,28 +135,36 @@ trait Index extends HasLogger {
    * if the Index in inaccessible or broken.
    */
   def findOccurrences(words: List[String], projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
-    // Query each project index in parallel.
-    val indexSearchResults = projects.par.map { project =>
+
+    val query = new BooleanQuery()
+    val innerQuery = new BooleanQuery()
+    for { w <- words } {
+      innerQuery.add(
+          new TermQuery(Terms.exactWord(w)),
+          BooleanClause.Occur.SHOULD)
+    }
+    query.add(innerQuery, BooleanClause.Occur.MUST)
+
+    val resuts = queryProjects(query, projects)
+
+    groupSearchResults(resuts.seq)
+  }
+
+  private def queryProjects(query: BooleanQuery, projects: Set[ScalaProject]): Set[(ScalaProject, Try[ArraySeq[Occurrence]])] = {
+    projects.par.map { project =>
       val resultsForProject = withSearcher(project){ searcher =>
-        // This creates a query that searches occurrences of
-        // any of the given words.
-        val query = new BooleanQuery()
-        val innerQuery = new BooleanQuery()
-        words.foreach { w =>
-          innerQuery.add(new TermQuery(Terms.exactWord(w)), BooleanClause.Occur.SHOULD)
-        }
-        query.add(innerQuery, BooleanClause.Occur.MUST)
         for {
           hit        <- searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
           occurrence <- fromDocument(searcher.doc(hit.doc)).right.toOption
         } yield occurrence
       }
       (project, resultsForProject)
-    }
+    }.seq
+  }
 
+  private def groupSearchResults(results: Set[(ScalaProject, Try[ArraySeq[Occurrence]])]): (Seq[Occurrence], Seq[SearchFailure]) = {
     val initial: (Seq[Occurrence], Seq[SearchFailure]) = (Nil, Nil)
-
-    indexSearchResults.foldLeft(initial) { (acc, t: (ScalaProject,Try[Seq[Occurrence]])) =>
+    results.foldLeft(initial) { (acc, t: (ScalaProject,Try[Seq[Occurrence]])) =>
       val (occurrences, failures) = acc
       t match {
         case (_, Success(xs)) => (occurrences ++ xs, failures)
@@ -245,6 +269,10 @@ trait Index extends HasLogger {
     def exactWord(word: String) = {
       new Term(LuceneFields.WORD, word)
     }
+
+    def isInSuperPosition = {
+      new Term(LuceneFields.IS_IN_SUPER_POSITION, "true")
+    }
   }
 
   /**
@@ -264,6 +292,7 @@ trait Index extends HasLogger {
     persist(OFFSET, o.offset.toString)
     persist(OCCURRENCE_KIND, o.occurrenceKind.toString)
     persist(LINE_CONTENT, o.lineContent.toString)
+    persist(IS_IN_SUPER_POSITION, o.isInSuperPosition.toString)
     persist(PROJECT_NAME, project.getName)
 
     doc
@@ -278,6 +307,15 @@ trait Index extends HasLogger {
    *
    */
   protected def fromDocument(doc: Document): Either[ConversionError, Occurrence] = {
+
+    def convertToBoolean(str: String) = str match {
+      case "true"  => true
+      case "false" => false
+      case x =>
+        logger.debug(s"Expected true/false when converting document, but got $x")
+        false
+    }
+
     import LuceneFields._
     (for {
       word           <- Option(doc.get(WORD))
@@ -286,6 +324,7 @@ trait Index extends HasLogger {
       occurrenceKind <- Option(doc.get(OCCURRENCE_KIND))
       lineContent    <- Option(doc.get(LINE_CONTENT))
       projectName    <- Option(doc.get(PROJECT_NAME))
+      isSuper        <- Option(doc.get(IS_IN_SUPER_POSITION)).map(convertToBoolean)
     } yield {
       val root = ResourcesPlugin.getWorkspace().getRoot()
       (for {
@@ -293,7 +332,7 @@ trait Index extends HasLogger {
         ifile          <- Option(project.getFile(Path.fromPortableString(path)))
         file           <- Util.scalaSourceFileFromIFile(ifile)
       } yield {
-        Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind), lineContent)
+        Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind), lineContent, isSuper)
       }).fold {
         // The file or project apparently no longer exists. This can happen
         // if the project/file has been deleted/renamed and a search is
