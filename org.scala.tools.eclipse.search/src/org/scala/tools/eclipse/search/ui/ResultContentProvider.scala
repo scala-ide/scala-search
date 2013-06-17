@@ -35,24 +35,25 @@ class ResultContentProvider(page: SearchResultPage) extends ITreeContentProvider
     }
   }
 
+  // This returns the top-level elements in the tree-structure.
   override def getElements(inputElement: Object): Array[Object] = {
-    // This returns the top-level elements, i.e. the filename and the match
-    // count in that file.
-    input.resultsGroupedByFile.map { case (str, seq) => (str, seq.size) }.toArray
+    input.projectNodes.toArray
   }
 
   override def getChildren(parentElement: Object): Array[Object] = {
-    parentElement match {
-      case (x: String, _) =>
-        input.resultsGroupedByFile.get(x).map(_.toArray.map(_.asInstanceOf[Object])).getOrElse(Array[Object]())
-      case _ => Array[Object]()
-    }
+    (parentElement match {
+      case ProjectNode(_, _, files) => files
+      case FileNode(_, _, lines) => lines
+      case _ => Nil
+    }).toArray.map(_.asInstanceOf[Object])
+
   }
 
   override def getParent(element: Object): Object = null
 
   override def hasChildren(element: Object): Boolean = element match {
-    case (x: String, _) => input.resultsGroupedByFile.get(x).fold(false)(_ => true)
+    case ProjectNode(_, _, _) => true
+    case FileNode(_, _, _) => true
     case _ => false
   }
 }

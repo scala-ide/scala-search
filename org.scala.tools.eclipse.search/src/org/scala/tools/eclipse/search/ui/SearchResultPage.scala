@@ -1,30 +1,24 @@
 package org.scala.tools.eclipse.search
 package ui
 
+import scala.reflect.runtime.universe
+import scala.tools.eclipse.ScalaSourceFileEditor
+import scala.tools.eclipse.logging.HasLogger
+import scala.tools.eclipse.util.Utils.WithAsInstanceOfOpt
+
+import org.eclipse.jdt.internal.ui.JavaPlugin
+import org.eclipse.jface.viewers.IStructuredSelection
+import org.eclipse.jface.viewers.OpenEvent
+import org.eclipse.jface.viewers.StructuredViewer
 import org.eclipse.jface.viewers.TableViewer
 import org.eclipse.jface.viewers.TreeViewer
 import org.eclipse.search.ui.text.AbstractTextSearchViewPage
-import org.eclipse.jface.viewers.IContentProvider
-import org.eclipse.jface.viewers.ILabelProvider
-import org.scala.tools.eclipse.search.searching.Hit
-import scala.tools.eclipse.InteractiveCompilationUnit
-import org.eclipse.jface.viewers.Viewer
-import scala.tools.eclipse.logging.HasLogger
-import org.eclipse.jface.viewers.ITreeContentProvider
-import org.eclipse.jface.viewers.StructuredViewer
-import org.eclipse.jface.viewers.IStructuredSelection
-import org.eclipse.jface.viewers.OpenEvent
-import org.eclipse.jface.action.Action
-import org.eclipse.ui.IWorkbenchWindowActionDelegate
-import org.eclipse.ui.IWorkbenchWindow
-import org.eclipse.jdt.internal.ui.JavaPlugin
+import org.eclipse.ui.ide.IDE
 import org.eclipse.ui.part.FileEditorInput
-import org.eclipse.ui.ide.IDE
-import org.eclipse.ui.ide.IDE
-import scala.tools.eclipse.util.Utils._
-import scala.tools.eclipse.ScalaSourceFileEditor
-import org.scala.tools.eclipse.search.searching.Confidence
+import org.scala.tools.eclipse.search.ErrorHandlingOption
+import org.scala.tools.eclipse.search.Util
 import org.scala.tools.eclipse.search.searching.Certain
+import org.scala.tools.eclipse.search.searching.Hit
 import org.scala.tools.eclipse.search.searching.Uncertain
 
 /**
@@ -80,8 +74,8 @@ class SearchResultPage
     def getElement(selection: IStructuredSelection): Option[Hit] = {
       val elem = selection.getFirstElement()
       elem match {
-        case Certain(x: Hit) => Some(x)
-        case Uncertain(x: Hit) => Some(x)
+        case LineNode(Certain(x: Hit)) => Some(x)
+        case LineNode(Uncertain(x: Hit)) => Some(x)
         case _ =>
           logger.debug(s"Unexpected selection type, got ${elem.getClass}")
           None
