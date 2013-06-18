@@ -46,23 +46,23 @@ object OccurrenceCollector extends HasLogger {
       override def traverse(t: Tree) {
         t match {
 
-          case Ident(fun) if !isSynthetic(pc)(t, fun.toString) =>
-            occurrences += Occurrence(fun.toString, file, t.pos.point, Reference, t.pos.lineContent)
+          case Ident(name) if !isSynthetic(pc)(t) =>
+            occurrences += Occurrence(name.decodedName.toString, file, t.pos.point, Reference, t.pos.lineContent)
 
-          case Select(rest,name) if !isSynthetic(pc)(t, name.toString) =>
-            occurrences += Occurrence(name.toString, file, t.pos.point, Reference, t.pos.lineContent)
+          case Select(rest,name) if !isSynthetic(pc)(t) =>
+            occurrences += Occurrence(name.decodedName.toString, file, t.pos.point, Reference, t.pos.lineContent)
             traverse(rest) // recurse in the case of chained selects: foo.baz.bar
 
           // Method definitions
-          case DefDef(mods, name, _, args, _, body) if !isSynthetic(pc)(t, name.toString) =>
-            occurrences += Occurrence(name.toString, file, t.pos.point, Declaration, t.pos.lineContent)
+          case DefDef(mods, name, _, args, _, body) if !isSynthetic(pc)(t) =>
+            occurrences += Occurrence(name.decodedName.toString, file, t.pos.point, Declaration, t.pos.lineContent)
             traverseTrees(mods.annotations)
             traverseTreess(args)
             traverse(body)
 
           // Val's and arguments.
           case ValDef(_, name, tpt, rhs) =>
-            occurrences += Occurrence(name.toString, file, t.pos.point, Declaration, t.pos.lineContent)
+            occurrences += Occurrence(name.decodedName.toString, file, t.pos.point, Declaration, t.pos.lineContent)
             traverse(tpt)
             traverse(rhs)
 
@@ -76,7 +76,7 @@ object OccurrenceCollector extends HasLogger {
   }
 
   private def isSynthetic(pc: ScalaPresentationCompiler)
-                         (tree: pc.Tree, name: String): Boolean = {
+                         (tree: pc.Tree): Boolean = {
     tree.pos == pc.NoPosition
   }
 
