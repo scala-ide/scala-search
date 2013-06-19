@@ -6,9 +6,13 @@ import scala.tools.eclipse.testsetup.TestProjectSetup
 import scala.util.Failure
 import scala.util.Success
 import org.scala.tools.eclipse.search.TestUtil
+import org.scala.tools.eclipse.search.searching.SourceCreator
+import scala.tools.eclipse.javaelements.ScalaSourceFile
+import org.scala.tools.eclipse.search.Util
 
 object OccurrenceCollectorTest extends TestProjectSetup("aProject", bundleName= "org.scala.tools.eclipse.search.tests")
-                                  with TestUtil {
+                                  with TestUtil
+                                  with SourceCreator {
 
   def occurrenceFor(word: String, occurrences: Seq[Occurrence]) = {
     occurrences.filter( _.word == word )
@@ -110,6 +114,22 @@ class OccurrenceCollectorTest {
       val x = occurrenceFor("<init>", occurrences).filter(_.occurrenceKind == Reference)
       assertEquals("Should find 3 constructors", 3, x.size)
     }
+  }
+
+  @Test
+  def canHandleFilesBeingDeleted = {
+    // Since everything is concurrent we can easily find ourselves in a
+    // situation where the occurrence collector is used on a file that
+    // doesn't exist anymore.
+    val project = Project("OccurrenceCollectorTest")
+    val source = project.create("CanHandleFilesBeingDeleted.scala")("")
+    val sf = Util.scalaSourceFileFromIFile(source.unit.workspaceFile).get
+    source.unit.file.delete
+    assertFalse("File should shouldn't exist at this point", sf.exists())
+    val occ = OccurrenceCollector.findOccurrences(sf)
+    assertTrue(s"It should've returned a Failure but got ${occ.getClass()}",occ.isFailure)
+
+    project.delete
   }
 
 }
