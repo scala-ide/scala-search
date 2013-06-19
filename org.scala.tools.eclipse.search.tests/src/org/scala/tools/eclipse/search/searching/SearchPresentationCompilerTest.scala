@@ -23,15 +23,86 @@ class SearchPresentationCompilerTest {
     project.delete
   }
 
+  /**----------------------*
+   * nameOfEntityAt
+   * ----------------------*/
+
   @Test
-  def canGetSymbolAtLocation {
-    project.create("ExampleWithSymbol.scala") {"""
-      class ExampleWithSymbol {
-        val |x: Int = 42
+  def nameOfEntityAt_worksForClasses = {
+    project.create("NameOfEntityAtWorksForClasses.scala") {"""
+      class |NameOfEntityAtWorksForClasses
+    """
+    } expectedSymbolNamed(Some("NameOfEntityAtWorksForClasses"))
+  }
+
+  @Test
+  def nameOfEntityAt_worksForSetter = {
+    project.create("NameOfEntityAtWorksForClasses.scala") {"""
+      class NameOfEntityAtWorksForClasses {
+        var x: Int
+        |x_=(42)
       }
     """
     } expectedSymbolNamed(Some("x"))
   }
+
+  @Test
+  def nameOfEntityAt_worksForGetters = {
+    project.create("NameOfEntityAtWorksForGetter.scala") {"""
+      class NameOfEntityAtWorksForGetter {
+        val x: Int = 42
+        |x
+      }
+    """
+    } expectedSymbolNamed(Some("x"))
+  }
+
+  @Test
+  def nameOfEntityAt_worksForLocal = {
+    project.create("NameOfEntityAtWorksForLocal.scala") {"""
+      class NameOfEntityAtWorksForLocal {
+        val |x: Int = 42
+        x
+      }
+    """
+    } expectedSymbolNamed(Some("x"))
+  }
+
+  @Test
+  def nameOfEntityAt_correctlyDecodesNameForLocal = {
+    project.create("NameOfEntityAtDecodesNameForLocal.scala") {"""
+      class NameOfEntityAtDecodesNameForLocal {
+        val |:: = 42
+      }
+    """
+    } expectedSymbolNamed(Some("::"))
+  }
+
+  @Test
+  def nameOfEntityAt_correctlyDecodesNameForGetter = {
+    project.create("NameOfEntityAtDecodesNameForGetter.scala") {"""
+      class NameOfEntityAtDecodesNameForGetter {
+        var :: = 42
+        |::
+      }
+    """
+    } expectedSymbolNamed(Some("::"))
+  }
+
+  @Test
+  def nameOfEntityAt_correctlyDecodesNameForSetter = {
+    project.create("NameOfEntityAtDecodesNameForSetter.scala") {"""
+      class NameOfEntityAtDecodesNameForSetter {
+        var :: = 42
+        |::_(43)
+      }
+    """
+    } expectedSymbolNamed(Some("::"))
+  }
+
+  /**----------------------*
+   * Constructors
+   * ----------------------*/
 
   @Test
   def constructorDefinition {
@@ -57,6 +128,10 @@ class SearchPresentationCompilerTest {
       }
     """} expectedSymbolNamed(Some("<init>"))
   }
+
+  /**----------------------*
+   * Error Handling
+   * ----------------------*/
 
   @Test
   def noSymbolIfAskedForWrongLocation {
