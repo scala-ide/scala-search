@@ -111,8 +111,9 @@ class OccurrenceCollectorTest {
     doWithOccurrencesInUnit("org", "example", "ConstructorInvocations.scala") { occurrences =>
       // we expect 3 here because the constructors created by the compiler calls super.<init>.
       // The compiler generates a constructor for the class and the companion object.
-      val x = occurrenceFor("<init>", occurrences).filter(_.occurrenceKind == Reference)
-      assertEquals("Should find 3 constructors", 3, x.size)
+      val r =  occurrenceFor("<init>", occurrences)
+      val x = r.filter(o => o.occurrenceKind == Reference && o.offset == 84 )
+      assertEquals("Should find 1 constructors invocation", 1, x.size)
     }
   }
 
