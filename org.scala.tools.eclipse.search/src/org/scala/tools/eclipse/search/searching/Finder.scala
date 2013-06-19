@@ -6,6 +6,9 @@ import scala.tools.eclipse.ScalaPlugin
 import org.scala.tools.eclipse.search.ErrorReporter
 import scala.tools.eclipse.logging.HasLogger
 import org.scala.tools.eclipse.search.indexing.SearchFailure
+import scala.tools.eclipse.javaelements.ScalaSourceFile
+import org.eclipse.core.runtime.IProgressMonitor
+import org.eclipse.core.runtime.NullProgressMonitor
 
 /**
  * Component that provides various methods related to finding Scala entities.
@@ -23,9 +26,10 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
    * - Should any errors occur in the Index that we can't handle, the failures
    *   are passed to the `errorHandler` function.
    */
-  def occurrencesOfEntityAt(location: Location)(hit: ExactHit => Unit,
-                                                potentialHit: PotentialHit=> Unit = _ => (),
-                                                errorHandler: SearchFailure => Unit = _ => ()): Unit = {
+  def occurrencesOfEntityAt(location: Location, monitor: IProgressMonitor)
+                           (hit: ExactHit => Unit,
+                            potentialHit: PotentialHit=> Unit = _ => (),
+                            errorHandler: SearchFailure => Unit = _ => ()): Unit = {
 
     // Find all the Scala projects that are relevant to search in.
     val enclosingProject = location.cu.scalaProject.underlying
@@ -40,16 +44,22 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
         names <- spc.possibleNamesOfEntityAt(location) onEmpty reporter.reportError(s"Couldn't get name of symbol at ${location.offset} in ${sf.file.path}")
       } {
         val (occurrences, failures) = index.findOccurrences(names, allScala)
-        logger.debug(s"Found ${occurrences.size} potential matches")
         failures.foreach(errorHandler)
-        occurrences.foreach { occurrence =>
+        monitor.beginTask("Typechecking for exact matches", occurrences.size)
+
+        val it = occurrences.iterator
+        while (it.hasNext && !monitor.isCanceled()) {
+          val occurrence = it.next
+          monitor.subTask(s"Checking ${occurrence.file.file.name}")
           val loc = Location(occurrence.file, occurrence.offset)
           comparator.isSameAs(loc) match {
-            case Same => hit(ExactHit(occurrence.file, occurrence.word, occurrence.lineContent, occurrence.offset))
+            case Same         => hit(ExactHit(occurrence.file, occurrence.word, occurrence.lineContent, occurrence.offset))
             case PossiblySame => potentialHit(PotentialHit(occurrence.file, occurrence.word, occurrence.lineContent, occurrence.offset))
-            case NotSame => logger.debug(s"$occurrence wasn't the same.")
+            case NotSame      => logger.debug(s"$occurrence wasn't the same.")
           }
+          monitor.worked(1)
         }
+        monitor.done()
       }
     }(reporter.reportError(s"Could not access source file ${location.cu.file.path}"))
   }

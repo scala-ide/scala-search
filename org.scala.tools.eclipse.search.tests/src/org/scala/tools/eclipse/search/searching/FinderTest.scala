@@ -68,7 +68,7 @@ class FinderTest {
     indexer.indexProject(project.scalaProject)
 
     @volatile var results = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor) { loc =>
       results += 1
       hitLatch.countDown
     }
@@ -108,7 +108,7 @@ class FinderTest {
     indexer.indexProject(project.scalaProject)
 
     @volatile var results = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor) { loc =>
       results += 1
       hitLatch.countDown
     }
@@ -147,11 +147,11 @@ class FinderTest {
 
     @volatile var resultsForGetter = 0
     @volatile var resultsForSetter = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(0))) { loc =>
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(0)), new NullProgressMonitor) { loc =>
       resultsForGetter += 1
       hitLatch.countDown
     }
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(1))) { loc =>
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(1)), new NullProgressMonitor) { loc =>
       resultsForSetter += 1
       hitLatch.countDown
     }
@@ -198,7 +198,7 @@ class FinderTest {
     indexer.indexProject(project2.scalaProject)
 
     @volatile var results = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head)) { loc =>
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor) { loc =>
       results += 1
       hitLatch.countDown
     }
@@ -260,7 +260,7 @@ class FinderTest {
 
     @volatile var hits = 0
     @volatile var failures = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor)(
       hit = _ => {
         hits += 1
         hitLatch.countDown
@@ -311,7 +311,7 @@ class FinderTest {
 
     @volatile var hits = 0
     @volatile var potentialHits = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head))(
+    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor)(
       hit = loc => {
         hits += 1
         hitLatch.countDown
