@@ -1,17 +1,20 @@
 package org.scala.tools.eclipse.search.ui
 
-import org.eclipse.search.ui.text.IFileMatchAdapter
-import org.eclipse.search.ui.text.AbstractTextSearchResult
+import scala.Array.canBuildFrom
+
 import org.eclipse.core.resources.IFile
+import org.eclipse.search.ui.text.AbstractTextSearchResult
+import org.eclipse.search.ui.text.IFileMatchAdapter
 import org.eclipse.search.ui.text.Match
-import org.scala.tools.eclipse.search.searching.Location
+import org.scala.tools.eclipse.search.Util
+import org.scala.tools.eclipse.search.searching.Confidence
 import org.scala.tools.eclipse.search.searching.Hit
 
 class FileMatchAdapter extends IFileMatchAdapter {
 
   // Returns an array with all matches contained in the given file in the given search result.
   def computeContainedMatches(result: AbstractTextSearchResult, file: IFile): Array[Match] = {
-    val hits = result.getElements.map(_.asInstanceOf[Hit])
+    val hits = result.getElements.map(_.asInstanceOf[Confidence[Hit]])
     MatchAdatperHelper.matches(hits, file)
   }
 
@@ -25,7 +28,7 @@ class FileMatchAdapter extends IFileMatchAdapter {
     //    - The file has been deleted since the search was executed or
     //      the project that contains the file is now closed.
     element match {
-      case hit: Hit => MatchAdatperHelper.getWorkspaceFile(hit).getOrElse(null)
+      case hit: Hit => Util.getWorkspaceFile(hit.cu).getOrElse(null)
       case _ => null
     }
   }

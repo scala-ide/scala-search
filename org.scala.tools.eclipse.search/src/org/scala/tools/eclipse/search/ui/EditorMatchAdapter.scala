@@ -8,12 +8,13 @@ import org.scala.tools.eclipse.search.searching.Location
 import org.eclipse.ui.IFileEditorInput
 import org.scala.tools.eclipse.search.searching.Hit
 import scala.tools.eclipse.logging.HasLogger
+import org.scala.tools.eclipse.search.searching.Confidence
 
 class EditorMatchAdapter extends IEditorMatchAdapter with HasLogger {
 
   // Returns all matches that are contained in the element shown in the given editor.
   override def computeContainedMatches(result: AbstractTextSearchResult, editor: IEditorPart): Array[Match] = {
-    val hits = result.getElements.map(_.asInstanceOf[Hit])
+    val hits = result.getElements.map(_.asInstanceOf[Confidence[Hit]])
     editor.getEditorInput() match {
       case in: IFileEditorInput => MatchAdatperHelper.matches(hits, in.getFile)
       case _ => Array()

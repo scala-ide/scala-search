@@ -1,13 +1,11 @@
 package org.scala.tools.eclipse.search.indexing
 
 import java.io.IOException
-
 import scala.collection.JavaConverters.asJavaIterableConverter
 import scala.tools.eclipse.ScalaProject
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import org.apache.lucene.document.Document
 import org.apache.lucene.index.CorruptIndexException
 import org.apache.lucene.index.IndexWriter
@@ -24,8 +22,9 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.when
 import org.scala.tools.eclipse.search.TestUtil
 import org.scala.tools.eclipse.search.searching.SourceCreator
-
 import LuceneIndexTest.Project
+import java.util.concurrent.CountDownLatch
+import org.scala.tools.eclipse.search.FileChangeObserver
 
 /**
  * Tests that the correct things are stored in the LuceneIndex. We shouldn't
@@ -211,7 +210,12 @@ class IndexTest {
     val occurrence = Occurrence("", source.unit, 0, Reference)
 
     index.addOccurrences(Seq(occurrence), project.scalaProject)
+
+    // Make sure the file-deleted event is propagated.
+    val latch = new CountDownLatch(1)
+    val observer = FileChangeObserver(project.scalaProject)( onRemoved = _ => latch.countDown)
     project.delete
+    latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
     val result = index.occurrencesInFile(path,project.scalaProject)
 

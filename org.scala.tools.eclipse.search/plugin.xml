@@ -2,6 +2,15 @@
 <?eclipse version="3.2"?>
 <plugin>
 
+  <!-- View extensions -->
+  <extension point="org.eclipse.ui.views">
+    <view
+          id="org.scala.tools.eclipse.search.ui.typehiearchy"
+          name="Type Hierarchy"
+          class="org.scala.tools.eclipse.search.ui.TypeHierarchyView"
+          icon="icons/type-hierarchy-scala.gif" />
+  </extension>
+
   <!-- Search pages extension point -->
   <extension point="org.eclipse.search.searchPages">
     <!-- When we're ready we need to set showScopeSection to true. -->
@@ -13,8 +22,7 @@
          extensions="scala:90"
          enabled="true"
          showScopeSection="false"
-         class="org.scala.tools.eclipse.search.ui.SearchPage">
-    </page>
+         class="org.scala.tools.eclipse.search.ui.SearchPage" />
   </extension>
 
   <!-- Search Results panel extension point -->
@@ -22,13 +30,12 @@
     <viewPage
              id="org.scala.tools.eclipse.search.ui.SearchResultPage"
              searchResultClass="org.scala.tools.eclipse.search.ui.SearchResult"
-             class="org.scala.tools.eclipse.search.ui.SearchResultPage">
-    </viewPage>
+             class="org.scala.tools.eclipse.search.ui.SearchResultPage" />
   </extension>
 
   <!-- Force Eclipse to start the plugin when it starts. -->
   <extension point="org.eclipse.ui.startup">
-    <startup class="org.scala.tools.eclipse.search.Startup"></startup>
+    <startup class="org.scala.tools.eclipse.search.Startup" />
   </extension>
 
   <!-- Commands -->
@@ -42,26 +49,37 @@
              description="Finds all references of a method"
              categoryId="org.scala.tools.eclipse.search.commands"
              id="org.scala.tools.eclipse.search.commands.FindReferences"/>
+    <command
+             name="Open Type Hierarchy"
+             description="Open Type Hierarchy"
+             categoryId="org.scala.tools.eclipse.search.commands"
+             id="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy"/>
   </extension>
 
   <!-- Handlers -->
   <extension point="org.eclipse.ui.handlers">
     <handler
              class="org.scala.tools.eclipse.search.handlers.FindOccurrences"
-             commandId="org.scala.tools.eclipse.search.commands.FindReferences">
-    </handler>
+             commandId="org.scala.tools.eclipse.search.commands.FindReferences" />
+    <handler
+             class="org.scala.tools.eclipse.search.handlers.OpenTypeHierarchy"
+             commandId="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy" />
   </extension>
 
   <!-- Menus -->
   <extension point="org.eclipse.ui.menus">
-     <menuContribution locationURI="popup:#CompilationUnitEditorContext?before=additions">
-        <command
-                 commandId="org.scala.tools.eclipse.search.commands.FindReferences"
-                 id="org.scala.tools.eclipse.search.menus.occurrences"
-                 label="Find occurrences"
-                 tooltip="">
-        </command>
-     </menuContribution>
+    <menuContribution locationURI="popup:#CompilationUnitEditorContext?before=additions">
+      <command
+               commandId="org.scala.tools.eclipse.search.commands.FindReferences"
+               id="org.scala.tools.eclipse.search.menus.occurrences"
+               label="Find occurrences"
+               tooltip="" />
+      <command
+               commandId="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy"
+               id="org.scala.tools.eclipse.search.menus.typehiearchy"
+               label="Open Type Hierarchy"
+               tooltip="" />
+    </menuContribution>
   </extension>
 
   <!-- Default Key Bindings -->
@@ -72,6 +90,11 @@
          schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
          contextId="scala.tools.eclipse.scalaEditorScope"
          sequence="CTRL+ALT+SHIFT+R"/>
+     <key
+         commandId="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy"
+         schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+         contextId="scala.tools.eclipse.scalaEditorScope"
+         sequence="F4"/>
   </extension>
 
 </plugin>

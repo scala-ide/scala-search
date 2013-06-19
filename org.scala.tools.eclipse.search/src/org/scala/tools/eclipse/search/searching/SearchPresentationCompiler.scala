@@ -1,32 +1,19 @@
 package org.scala.tools.eclipse.search
 package searching
 
-import scala.tools.eclipse.ScalaPresentationCompiler
-import scala.reflect.internal.util.SourceFile
-import scala.tools.nsc.interactive.Response
 import scala.reflect.internal.util.OffsetPosition
-import scala.tools.eclipse.logging.HasLogger
-import org.scala.tools.eclipse.search.indexing.Occurrence
 import scala.reflect.internal.util.RangePosition
+import scala.reflect.internal.util.SourceFile
+import scala.tools.eclipse.ScalaPresentationCompiler
 import scala.tools.eclipse.javaelements.ScalaCompilationUnit
+import scala.tools.eclipse.logging.HasLogger
+import scala.tools.nsc.interactive.Response
+
+import org.scala.tools.eclipse.search.Entity
+import org.scala.tools.eclipse.search.ErrorHandlingOption
+import org.scala.tools.eclipse.search.TypeEntity
 import org.scala.tools.eclipse.search.indexing.Declaration
-
-sealed abstract class ComparisionResult
-case object Same extends ComparisionResult
-case object NotSame extends ComparisionResult
-case object PossiblySame extends ComparisionResult
-
-trait SymbolComparator {
-  def isSameAs(loc: Location): ComparisionResult
-}
-
-object SymbolComparator {
-  def apply(f: Location => ComparisionResult): SymbolComparator = {
-    new SymbolComparator {
-      override def isSameAs(loc: Location) = f(loc)
-    }
-  }
-}
+import org.scala.tools.eclipse.search.indexing.Occurrence
 
 /**
  * Encapsulates PC logic. Makes it easier to control where the compiler data
@@ -42,50 +29,80 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   protected case object NotTypeable extends SymbolRequest
 
   /**
-   * Find the name of the symbol at the given location. Returns
-   * None if it can't find a valid symbol at the given location.
+   * Given a `Location` return a Entity representation of
+   * whatever Scala entity is being used or declared at the
+   * given position.
    *
-   * In case this is a var/val where the name can be either the
-   * local name, the setter or the getter the getter name will
-   * be used.
+   * This returns None if the location can't be type-checked
+   * or the file can't be access by the compiler.
    */
-  def nameOfEntityAt(loc: Location): Option[String] = {
-
-    def getName(symbol: pc.Symbol): String = {
-      if(pc.nme.isSetterName(symbol.name)) {
-        pc.nme.setterToGetter(symbol.name.toTermName).decodedName.toString
-      } else if (pc.nme.isLocalName(symbol.name)) {
-        pc.nme.localToGetter(symbol.name.toTermName).decodedName.toString
-      } else {
-        symbol.decodedName
+  def entityAt(loc: Location): Option[Entity] = {
+    symbolAt(loc) match {
+      case FoundSymbol(symbol) => pc.askOption { () =>
+        val nme = getName(symbol)
+        if      (symbol.isTrait) Trait(nme, loc)
+        else if (symbol.isClass) Class(nme, loc)
+        else if (symbol.isModule) Module(nme, loc)
+        else if (symbol.isType) Type(nme, loc)
+        else if (symbol.isMethod) Method(nme, loc)
+        else if (symbol.isVal) Val(nme, loc)
+        else if (symbol.isVar) Var(nme, loc)
+        else new UnknownEntity(nme, loc)
       }
+      case _ => None
     }
-
-    loc.cu.withSourceFile({ (sf, pc) =>
-      symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) => pc.askOption(() => getName(symbol))
-        case _ => None
-      }
-    })(None)
   }
 
   /**
-   * Used to check if the entity at the given location is something we
+   * Given two TypeEntities, check if `subType` is a subtype of `superType`.
+   */
+  def isSubtype(superType: TypeEntity, subType: TypeEntity): Boolean = {
+
+    def getSymbol(req: SymbolRequest): Option[pc.Symbol] = req match {
+      case FoundSymbol(sym) => Some(sym)
+      case _ => None
+    }
+
+    (for {
+      s1 <- getSymbol(symbolAt(superType.location)) onEmpty logger.debug(s"Couldn't get symbol at ${superType.location}")
+      s2 <- getSymbol(symbolAt(subType.location)) onEmpty logger.debug(s"Couldn't get symbol at ${subType.location}")
+      isSame <- isSameSymbol(s1,s2)
+      isSubtype <- pc.askOption { () =>
+        !isSame && (s2.isSubClass(s1) || s2.typeOfThis.typeSymbol.isSubClass(s1))
+      }
+    } yield isSubtype) getOrElse false
+  }
+
+  /**
+   * In case the symbol is a var/val where the name can be either the
+   * local name, the setter or the getter the getter name will
+   * be used.
+   */
+  private def getName(symbol: pc.Symbol): String = {
+    if(pc.nme.isSetterName(symbol.name)) {
+      pc.nme.setterToGetter(symbol.name.toTermName).decodedName.toString
+    } else if (pc.nme.isLocalName(symbol.name)) {
+      pc.nme.localToGetter(symbol.name.toTermName).decodedName.toString
+    } else {
+      symbol.decodedName
+    }
+  }
+
+  /**
+   * Used to check if the entity at the given entity is something we
    * can find occurrences of. This is useful until we support all kinds
    * of entities.
    */
-  def canFindReferences(loc: Location): Boolean = {
-    loc.cu.withSourceFile({ (sf, pc) =>
-      symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) => pc.askOption { () =>
-          symbol.isVal ||
-          symbol.isMethod ||
-          symbol.isConstructor ||
-          symbol.isVar
-        }.getOrElse(false)
-        case _ => false
-      }
-    })(false)
+  def canFindReferences(entity: Entity): Boolean = {
+    symbolAt(entity.location) match {
+      case FoundSymbol(symbol) => pc.askOption { () =>
+        symbol.isVal ||
+        symbol.isMethod ||
+        symbol.isConstructor ||
+        symbol.isVar
+      }.getOrElse(false)
+      case _ => false
+    }
   }
 
   /**
@@ -119,12 +136,10 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       else List(symbol.decodedName.toString)
     }
 
-    loc.cu.withSourceFile({ (sf, _) =>
-      (symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) => names(symbol)
-        case _ => None
-      })
-    })(None)
+    symbolAt(loc) match {
+      case FoundSymbol(symbol) => names(symbol)
+      case _ => None
+    }
   }
 
   /**
@@ -179,9 +194,9 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
     } flatten
 
     def createComparator(symbol: pc.Symbol) = SymbolComparator { otherLoc =>
-      otherLoc.cu.withSourceFile { (otherSf, otherPc) =>
+      otherLoc.cu.withSourceFile { (_, otherPc) =>
         val otherSpc = new SearchPresentationCompiler(otherPc)
-        otherSpc.symbolAt(otherLoc, otherSf) match {
+        otherSpc.symbolAt(otherLoc) match {
           case otherSpc.FoundSymbol(symbol2) => (for {
             imported <- importSymbol(otherSpc)(symbol2)
             isSame   <- compare(symbol,imported)
@@ -192,16 +207,14 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       }(PossiblySame)
     }
 
-    loc.cu.withSourceFile({ (sf, _) =>
-      symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) => Some(createComparator(symbol))
-        case _ => None
-      }
-    })(None)
+    symbolAt(loc) match {
+      case FoundSymbol(symbol) => Some(createComparator(symbol))
+      case _ => None
+    }
   }
 
   /**
-   * Get the symbol of the entity at a given location in a file.
+   * Get the symbol of the entity at a given location
    *
    * The source file needs not be loaded in the presentation compiler prior to
    * this call.
@@ -209,23 +222,25 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    * This resolves overloaded method symbols. @See resolveOverloadedSymbol for
    * more information.
    */
-  protected def symbolAt[A](loc: Location, cu: SourceFile): SymbolRequest = {
-    val typed = new Response[pc.Tree]
-    val pos = new OffsetPosition(cu, loc.offset)
-    pc.askTypeAt(pos, typed)
-    typed.get.fold(
-      tree => {
-        (for {
-          (overloaded, treePos) <- pc.askOption { () => (tree.symbol.isOverloaded, tree.pos) }
-          if overloaded
-        } yield {
-          resolveOverloadedSymbol(treePos, cu)
-        }).getOrElse(filterNoSymbols(tree.symbol))
-      },
-      err => {
-        logger.debug(err)
-        NotTypeable
-      })
+  protected def symbolAt[A](loc: Location): SymbolRequest = {
+    loc.cu.withSourceFile { (sf, _) =>
+      val typed = new Response[pc.Tree]
+      val pos = new OffsetPosition(sf, loc.offset)
+      pc.askTypeAt(pos, typed)
+      typed.get.fold(
+        tree => {
+          (for {
+            (overloaded, treePos) <- pc.askOption { () => (tree.symbol.isOverloaded, tree.pos) }
+            if overloaded
+          } yield {
+            resolveOverloadedSymbol(treePos, sf)
+          }).getOrElse(filterNoSymbols(tree.symbol))
+        },
+        err => {
+          logger.debug(err)
+          NotTypeable
+        })
+    }(NotTypeable)
   }
 
   /**

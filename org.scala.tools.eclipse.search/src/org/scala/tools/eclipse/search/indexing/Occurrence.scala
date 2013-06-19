@@ -3,8 +3,8 @@ package org.scala.tools.eclipse.search.indexing
 import scala.tools.eclipse.javaelements.ScalaSourceFile
 import org.scala.tools.eclipse.search.searching.Hit
 import scala.tools.eclipse.javaelements.ScalaCompilationUnit
-import org.scala.tools.eclipse.search.searching.ExactHit
-import org.scala.tools.eclipse.search.searching.PotentialHit
+import org.scala.tools.eclipse.search.searching.Hit
+import org.scala.tools.eclipse.search.Util
 
 /**
  * Represents the various kinds of occurrences that we deal with
@@ -55,12 +55,10 @@ case class Occurrence(
 
   override def toString = "%s in %s at char %s %s".format(
       word,
-      file.file.file.getAbsolutePath(),
+      Util.getWorkspaceFile(file).map(_.getProjectRelativePath().toString()).getOrElse("File is deleted"),
       offset.toString,
       occurrenceKind.toString)
 
-  def toPotentialHit = PotentialHit(file, word, lineContent, offset)
-
-  def toExactHit = ExactHit(file, word, lineContent, offset)
+  def toHit = Hit(file, word, lineContent, offset)
 
 }

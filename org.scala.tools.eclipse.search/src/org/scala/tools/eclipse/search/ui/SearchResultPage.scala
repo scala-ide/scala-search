@@ -21,7 +21,7 @@ import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
 import org.eclipse.ui.ide.IDE
-import scala.tools.eclipse.util.Utils.any2optionable
+import scala.tools.eclipse.util.Utils._
 import scala.tools.eclipse.ScalaSourceFileEditor
 
 /**
@@ -77,7 +77,7 @@ class SearchResultPage
       selection <- event.getSelection().asInstanceOfOpt[IStructuredSelection]
       hit       <- selection.getFirstElement().asInstanceOfOpt[Hit] onEmpty logger.debug("Unexpected selection type")
       page      <- Option(JavaPlugin.getActivePage) onEmpty reporter.reportError("Couldn't get active page")
-      file      <- MatchAdatperHelper.getWorkspaceFile(hit) onEmpty reporter.reportError("File no longer exists")
+      file      <- Util.getWorkspaceFile(hit.cu) onEmpty reporter.reportError("File no longer exists")
       val input = new FileEditorInput(file)
       desc      <- Option(IDE.getEditorDescriptor(file.getName()))
       part      <- Option(IDE.openEditor(page, input, desc.getId()))

@@ -19,7 +19,10 @@ trait SourceCreator {
     def expectedSymbolNamed(nameOpt: Option[String]): Unit = {
       unit.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        assertEquals(nameOpt, spc.nameOfEntityAt(Location(unit, markers.head)))
+        val name = spc.entityAt(Location(unit, markers.head)) map { entity =>
+          entity.name
+        }
+        assertEquals(nameOpt, name)
       } (fail("Couldn't get Scala source file"))
     }
 
