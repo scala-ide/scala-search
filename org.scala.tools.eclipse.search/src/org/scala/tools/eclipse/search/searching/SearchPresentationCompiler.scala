@@ -42,11 +42,26 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   /**
    * Find the name of the symbol at the given location. Returns
    * None if it can't find a valid symbol at the given location.
+   *
+   * In case this is a var/val where the name can be either the
+   * local name, the setter or the getter the getter name will
+   * be used.
    */
   def nameOfEntityAt(loc: Location): Option[String] = {
+
+    def getName(symbol: pc.Symbol): String = {
+      if(pc.nme.isSetterName(symbol.name)) {
+        pc.nme.setterToGetter(symbol.name.toTermName).decodedName.toString
+      } else if (pc.nme.isLocalName(symbol.name)) {
+        pc.nme.localToGetter(symbol.name.toTermName).decodedName.toString
+      } else {
+        symbol.decodedName
+      }
+    }
+
     loc.cu.withSourceFile({ (sf, pc) =>
       symbolAt(loc, sf) match {
-        case FoundSymbol(symbol) => pc.askOption(() => symbol.decodedName.toString)
+        case FoundSymbol(symbol) => pc.askOption(() => getName(symbol))
         case _ => None
       }
     })(None)
