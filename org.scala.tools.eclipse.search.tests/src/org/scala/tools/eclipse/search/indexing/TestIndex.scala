@@ -9,6 +9,8 @@ import org.apache.lucene.search.BooleanClause
 import scala.Array.fallbackCanBuildFrom
 import scala.Option.option2Iterable
 import scala.tools.eclipse.ScalaProject
+import org.eclipse.core.runtime.Path
+import org.scala.tools.eclipse.search.TestUtil
 
 
 /**
@@ -34,5 +36,10 @@ trait TestIndex extends Index {
       } yield occurrence
     }
   }
+}
 
+object TestIndex extends TestUtil {
+  def apply(name: String) = new TestIndex {
+    override val base = new Path(mkPath("target", "index-test", name))
+  }
 }

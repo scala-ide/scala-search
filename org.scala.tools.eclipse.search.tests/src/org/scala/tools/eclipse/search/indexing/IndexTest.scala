@@ -1,25 +1,31 @@
 package org.scala.tools.eclipse.search.indexing
 
-import java.io.File
-import scala.tools.eclipse.testsetup.TestProjectSetup
-import org.junit.Assert._
-import org.junit.Test
-import org.mockito.Mockito._
-import org.apache.lucene.index.IndexWriter
-import scala.util.Try
-import org.apache.lucene.document.Document
 import java.io.IOException
-import scala.util.Failure
-import org.apache.lucene.search.BooleanQuery
-import org.eclipse.core.runtime.Path
-import org.apache.lucene.search.IndexSearcher
-import org.apache.lucene.index.CorruptIndexException
-import scala.util.Success
-import org.apache.lucene.index.IndexWriter
-import org.scala.tools.eclipse.search.TestUtil
+
 import scala.collection.JavaConverters.asJavaIterableConverter
 import scala.tools.eclipse.ScalaProject
-import scala.tools.eclipse.testsetup.SDTTestUtils
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
+import org.apache.lucene.document.Document
+import org.apache.lucene.index.CorruptIndexException
+import org.apache.lucene.index.IndexWriter
+import org.apache.lucene.search.BooleanQuery
+import org.apache.lucene.search.IndexSearcher
+import org.eclipse.core.runtime.Path
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Before
+import org.junit.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.when
+import org.scala.tools.eclipse.search.TestUtil
+import org.scala.tools.eclipse.search.searching.SourceCreator
+
+import LuceneIndexTest.Project
 
 /**
  * Tests that the correct things are stored in the LuceneIndex. We shouldn't
@@ -29,60 +35,131 @@ import scala.tools.eclipse.testsetup.SDTTestUtils
 class IndexTest {
 
   import LuceneIndexTest._
-  
+
+  private val project  = Project("IndexTest-Common")
+  private val projectA = Project("IndexTest-ProjectA")
+  private val projectB = Project("IndexTest-ProjectB")
+
+  @Before
+  def before {
+    projectA.create("S.scala") {"""
+      class A {
+        def foo(x: String) = "bar"
+      }
+    """}
+    projectB.create("S.scala") {"""
+      class B {
+        def bar(x: String) = {
+          val a = new A()
+          a.foo(x)
+        }
+      }
+    """}
+  }
+
+  @After
+  def after {
+    project.delete
+    projectA.delete
+    projectB.delete
+  }
+
   /**
    * Tests index adding/removing
    */
 
-  @Test def storeAndRetrieve() {
-    val index = new TestIndex {
-      override val base = INDEX_DIR
-    }
-    val indexer = new SourceIndexer(index) 
+  @Test
+  def storeAndRetrieve() {
 
-    val source = scalaCompilationUnit(mkPath("org","example","ScalaClass.scala"))
-    indexer.indexScalaFile(source)
-
-    val expected = List(
-      Occurrence("method",      source, 46,  Declaration),
-      Occurrence("methodOne",   source, 78,  Reference),
-      Occurrence("methodTwo",   source, 101, Reference),
-      Occurrence("methodThree", source, 119, Reference),
-      Occurrence("methodOne",   source, 172, Declaration),
-      Occurrence("methodTwo",   source, 197, Declaration),
-      Occurrence("methodThree", source, 228, Declaration)
-    )
-
-    val interestingNames = List("method", "methodOne", "methodTwo", "methodThree")
-
-    val results = index.occurrencesInFile(
-        source.workspaceFile.getProjectRelativePath(),
-        source.scalaProject)
-
-    assertTrue(results.isSuccess)
-    val resultOccurrences = results.get.filter( x => interestingNames.contains(x.word) )
-    assertEquals("Should be able to store and retrieve occurrences", expected, resultOccurrences)
-  }
-
-  @Test def deleteOccurrences() {
-
-    val index = new TestIndex {
-      override val base = INDEX_DIR
-    }
+    val project = Project("DeleteOccurrences")
+    val index   = TestIndex("DeleteOccurrences")
     val indexer = new SourceIndexer(index)
 
-    val source = scalaCompilationUnit(mkPath("org","example","ScalaClass.scala"))
-    indexer.indexScalaFile(source)
+    val source = project.create("A.scala") {"""
+      class A {
+        def |method: String = {
+          val s1 = |methodOne
+          val s2 = |methodTwo(s1)
+          |methodThree(s1)(s2)
+        }
+      }
+      object A {
+        def |foo = "Test"
+      }
+    """}
 
-    index.removeOccurrencesFromFile(source.workspaceFile.getProjectRelativePath(), source.scalaProject)
+    indexer.indexProject(project.scalaProject)
 
     val results = index.occurrencesInFile(
-        source.workspaceFile.getProjectRelativePath(),
-        source.scalaProject)
+        source.unit.workspaceFile.getProjectRelativePath(),
+        project.scalaProject)
+
+    val positions = source.markers
+    val names     = List("method", "methodOne", "methodTwo", "methodThree", "foo")
+    val expected  = positions zip names
+
+    val resultOccurrences = results.get.filter( x => positions.contains(x.offset) ).map( x => (x.offset, x.word))
+
+    project.delete
 
     assertTrue(results.isSuccess)
-    assertEquals("Index should not contain any occurrence in file", 0, results.get.size)
+    assertEquals("Should be able to store and retrieve occurrences", expected.toList, resultOccurrences.toList)
+  }
 
+  @Test
+  def deleteOccurrences() {
+
+    val project = Project("DeleteOccurrences")
+    val index   = TestIndex("DeleteOccurrences")
+    val indexer = new SourceIndexer(index)
+
+    val source = project.create("A.scala") {"""
+      class ScalaClass {
+        def method: String = {
+          val s1 = methodOne
+          val s2 = methodTwo(s1)
+          methodThree(s1)(s2)
+        }
+      }
+      object ScalaClass {
+        def methodOne = "Test"
+        def methodTwo(s: String) = s
+        def methodThree(s: String)(s2: String) = s + s2
+      }
+    """}
+
+    indexer.indexProject(project.scalaProject)
+
+    index.removeOccurrencesFromFile(
+        source.unit.workspaceFile.getProjectRelativePath(),
+        project.scalaProject)
+
+    val occurrences = index.occurrencesInFile(
+        source.unit.workspaceFile.getProjectRelativePath(),
+        project.scalaProject)
+
+    project.delete
+
+    assertTrue(occurrences.isSuccess)
+    assertEquals("Index should not contain any occurrence in file", 0, occurrences.get.size)
+  }
+
+  @Test
+  def findOccurrencesInSuperPosition {
+
+    val project = Project("FindOccurrencesInSuperPosition")
+    val index   = TestIndex("FindOccurrencesInSuperPosition")
+    val indexer = new SourceIndexer(index)
+
+    project.create("A.scala") {"class A"}
+    project.create("B.scala") {"class B extends A"}
+    project.create("C.scala") {"trait C { this: A => }"}
+
+    indexer.indexProject(project.scalaProject)
+
+    val (occurrences, _) = index.findOccurrencesInSuperPosition("A", Set(project.scalaProject))
+
+    assertEquals("A", 2, occurrences.size)
   }
 
   /**
@@ -91,31 +168,31 @@ class IndexTest {
 
   @Test def ioExceptionsByLuceneAreCaughtWhenAddingOccurrences() {
     val index = mockedWriterConfig(new IOException)
-    val r = index.addOccurrences(Nil, project)
+    val r = index.addOccurrences(Nil, project.scalaProject)
     failWithExceptionOfKind[IOException](r)
   }
 
   @Test def ioExceptionsByLuceneAreCaughtWhenRemovingOccurrences() {
     val index = mockedWriterConfig(new IOException)
-    val r = index.removeOccurrencesFromFile(anonymousPath, project)
+    val r = index.removeOccurrencesFromFile(anonymousPath, project.scalaProject)
     failWithExceptionOfKind[IOException](r)
   }
 
   @Test def ioExceptionsByLuceneAreCaughtWhenSearchingForOccurrences() {
     val index = mockedReaderConfig
-    val r = index.occurrencesInFile(anonymousPath, project)
+    val r = index.occurrencesInFile(anonymousPath, project.scalaProject)
     failWithExceptionOfKind[IOException](r)
   }
 
   @Test def corruptIndexExceptionByLuceneAreCaughtWhenAddingOccurrences() {
     val index = mockedWriterConfig(new CorruptIndexException(""))
-    val r = index.addOccurrences(Nil, project)
+    val r = index.addOccurrences(Nil, project.scalaProject)
     failWithExceptionOfKind[CorruptIndexException](r)
   }
 
   @Test def corruptIndexExceptionByLuceneAreCaughtWhenRemovingOccurrences() {
     val index = mockedWriterConfig(new CorruptIndexException(""))
-    val r = index.removeOccurrencesFromFile(anonymousPath, project)
+    val r = index.removeOccurrencesFromFile(anonymousPath, project.scalaProject)
     failWithExceptionOfKind[CorruptIndexException](r)
   }
 
@@ -124,17 +201,24 @@ class IndexTest {
     // propagated so the index could remove the occurrence in that file a user performed a search.
     // In such a case we don't want to the index to return occurrences from the index that has
     // been recorded in files that no longer exists
-    val source = scalaCompilationUnit(mkPath("org","example","DoesNotExist.scala"))
-    val occurrence = Occurrence("", source, 0, Reference)
+    val project = Project("DontShowOccurrenceInFilesThatNoLongerExist")
+    val index   = TestIndex("DontShowOccurrenceInFilesThatNoLongerExist")
+    val indexer = new SourceIndexer(index)
 
-    val index = new TestIndex {
-      override val base = INDEX_DIR
-    }
+    val source = project.create("DoesNotExist.scala")("")
+    val path = source.unit.workspaceFile.getProjectRelativePath()
 
-    index.addOccurrences(Seq(occurrence), project)
-    val s = index.occurrencesInFile(new Path("org/example/DoesNotExist.scala"), project)
-    assertTrue(s.isSuccess)
-    assertTrue(s.get.isEmpty)
+    val occurrence = Occurrence("", source.unit, 0, Reference)
+
+    index.addOccurrences(Seq(occurrence), project.scalaProject)
+    project.delete
+
+    val result = index.occurrencesInFile(path,project.scalaProject)
+
+    project.delete
+
+    assertTrue(s"Expected it to succeed but got $result", result.isSuccess)
+    assertTrue(s"Expected to not find any results, but found ${result.get}", result.get.isEmpty)
   }
 
   /**
@@ -145,11 +229,11 @@ class IndexTest {
     val index = new Index {
       override val base = INDEX_DIR
     }
-    val indexer = new SourceIndexer(index) 
+    val indexer = new SourceIndexer(index)
 
-    indexer.indexProject(projectA)
+    indexer.indexProject(projectA.scalaProject)
 
-    val (results, failures) = index.findOccurrences("foo", Set(projectA))
+    val (results, failures) = index.findOccurrences("foo", Set(projectA.scalaProject))
     assertEquals(1, results.size)
     assertEquals(0, failures.size)
   }
@@ -160,10 +244,10 @@ class IndexTest {
     }
     val indexer = new SourceIndexer(index)
 
-    indexer.indexProject(projectA)
-    indexer.indexProject(projectB)
+    indexer.indexProject(projectA.scalaProject)
+    indexer.indexProject(projectB.scalaProject)
 
-    val (results, failures) = index.findOccurrences("foo", Set(projectA, projectB))
+    val (results, failures) = index.findOccurrences("foo", Set(projectA.scalaProject, projectB.scalaProject))
     assertEquals(2, results.size)
   }
 
@@ -176,10 +260,10 @@ class IndexTest {
       }
     }
 
-    val (results, failures) = config.findOccurrences("foo", Set(projectA))
+    val (results, failures) = config.findOccurrences("foo", Set(projectA.scalaProject))
     assertEquals(0, results.size)
     assertEquals(1, failures.size)
-    assertEquals(BrokenIndex(projectA), failures.head)
+    assertEquals(BrokenIndex(projectA.scalaProject), failures.head)
 
   }
 
@@ -189,7 +273,7 @@ class IndexTest {
     val index = new Index {
       override val base = INDEX_DIR
       override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
-        if (project.underlying.getName == projectA.underlying.getName) {
+        if (project.underlying.getName == projectA.scalaProject.underlying.getName) {
           Failure(new CorruptIndexException(""))
         }
         else super.withSearcher(project)(f)
@@ -197,25 +281,20 @@ class IndexTest {
     }
     val indexer = new SourceIndexer(index)
 
-    indexer.indexProject(projectA)
-    indexer.indexProject(projectB)
+    indexer.indexProject(projectA.scalaProject)
+    indexer.indexProject(projectB.scalaProject)
 
-    val (results, failures) = index.findOccurrences("foo", Set(projectA, projectB))
+    val (results, failures) = index.findOccurrences("foo", Set(projectA.scalaProject, projectB.scalaProject))
     assertEquals(1, results.size)
     assertEquals(1, failures.size)
-    assertEquals(BrokenIndex(projectA), failures.head)
+    assertEquals(BrokenIndex(projectA.scalaProject), failures.head)
 
   }
 
 }
 
-object LuceneIndexTest extends TestProjectSetup("lucene_index_test_project", bundleName= "org.scala.tools.eclipse.search.tests")
-                          with TestUtil {
-
-  import scala.collection.JavaConverters.asJavaIterableConverter
-
-  val projectA = SDTTestUtils.setupProject("IndexTest-ProjectA", "org.scala.tools.eclipse.search.tests")
-  val projectB = SDTTestUtils.setupProject("IndexTest-ProjectB", "org.scala.tools.eclipse.search.tests")
+object LuceneIndexTest extends TestUtil
+                          with SourceCreator {
 
   def anonymousPath = new Path(".")
 
