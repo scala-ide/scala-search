@@ -1,1 +1,0 @@
-class SyntheticConstructor(x: String) {}
