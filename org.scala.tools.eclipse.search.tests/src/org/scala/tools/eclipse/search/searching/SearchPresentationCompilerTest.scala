@@ -760,6 +760,116 @@ class SearchPresentationCompilerTest {
     """} expectedDeclarationNamed("B")
   }
 
+    /**----------------------*
+    * directSupertypes      *
+    * ----------------------*/
+
+   @Test
+   def directSupertypes_worksForClasses = {
+     // The compiler automatically adds Object if not other
+     // super-types are defined.
+     project.create("DirectSuperTypesWorksForClasses.scala"){"""
+       class |A
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForClasInheritance = {
+     // Doesn't add AnyRef when a super-type is provided
+     project.create("DirectSuperTypesWorksForClassInheritance.scala"){"""
+       class A
+       class |B extends A
+     """} expectedSupertypes("A")
+   }
+
+   @Test
+   def directSupertypes_worksForClassesWithSelfTypes = {
+     // The compiler automatically adds Object if not other
+     // super-types are defined.
+     project.create("DirectSuperTypesWorksForClasses.scala"){"""
+       trait A
+       class |B { this: A => }
+     """} expectedSupertypes("Object", "A")
+   }
+
+   @Test
+   def directSupertypes_worksForTraits = {
+     // Object is injected for the super-type of A.
+     project.create("DirectSuperTypesWorksForTraits.scala"){"""
+       trait |A
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForMixins = {
+     // Compiler doesn't add Object as the super-type of a trait if it
+     // extends a class.
+     project.create("DirectSuperTypesWorksForMixins.scala"){"""
+       class A
+       trait B
+       trait |C extends A with B
+     """} expectedSupertypes("A", "B")
+   }
+
+   @Test
+   def directSupertypes_worksForMixins2 = {
+     // Compiler adds Object as the super-type if it only extends
+     // traits.
+     project.create("DirectSuperTypesWorksForMixins2.scala"){"""
+       trait A
+       trait B
+       trait |C extends A with B
+     """} expectedSupertypes("Object", "A", "B")
+   }
+
+   @Test
+   def directSupertypes_worksForObjects = {
+     // Compiler injects Object as the default super-type of modules
+     project.create("DirectSuperTypesWorksForObjects.scala"){"""
+       object |A
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForObjectsWithMixins = {
+     // Compiler adds object because A isn't a concrete class.
+     project.create("DirectSuperTypesWorksForObjectsWithMixins.scala"){"""
+       trait A
+       trait B
+       object |C extends A with B
+     """} expectedSupertypes("Object", "A", "B")
+   }
+
+   @Test
+   def directSupertypes_worksForSelfTypes = {
+     // Compiler still adds Object as super-type of B
+     project.create("DirectSuperTypesWorksForSelfTypes.scala"){"""
+       trait A
+       trait |B { this: A => }
+     """} expectedSupertypes("Object", "A")
+   }
+
+   @Test
+   def directSupertypes_worksForMixedClassAndSelftype = {
+     project.create("DirectSuperTypesWorksForMixedClassAndSelfType.scala"){"""\
+       class A
+       trait B
+       trait |C extends A { this: B => }
+     """} expectedSupertypes("A", "B")
+   }
+
+   @Test
+   def directSupertypes_selftypeWithMixins = {
+     // Compiler adds object because A isn't a concrete class.
+     project.create("DirectSuperTypesWorksSelftypeWithMixins.scala"){"""\
+       trait A
+       trait B
+       trait C
+       trait |D extends A { this: B with C => }
+     """} expectedSupertypes("Object", "A", "B", "C")
+   }
+
+
   /**----------------------*
    * Various               *
    * ----------------------*/

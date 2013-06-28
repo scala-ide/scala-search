@@ -128,6 +128,19 @@ trait Index extends HasLogger {
   }
 
   /**
+    * Search the projects for all occurrence of the `word` that are found in declarations.
+    */
+   def findDeclarations(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+     val query = new BooleanQuery()
+     query.add(new TermQuery(Terms.isDeclaration), BooleanClause.Occur.MUST)
+     query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
+
+     val resuts = queryProjects(query, projects)
+
+     groupSearchResults(resuts.seq)
+   }
+
+  /**
    * Search the relevant project indices for all occurrences of the given words.
    *
    * This will return a sequence of all the occurrences it found in the index and a
@@ -272,6 +285,10 @@ trait Index extends HasLogger {
 
     def isInSuperPosition = {
       new Term(LuceneFields.IS_IN_SUPER_POSITION, "true")
+    }
+
+    def isDeclaration = {
+      new Term(LuceneFields.OCCURRENCE_KIND, Declaration.toString)
     }
   }
 

@@ -62,6 +62,60 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
   }
 
   /**
+   * Find all supertypes of the given `entity`. The handler recieves
+   * a Confidence[TypeEntity] for each supertype. See Confidence
+   * ScalaDoc for more information.
+   *
+   * Errors are passed to `errorHandler`.
+   */
+  def findSupertypes(entity: TypeEntity, monitor: IProgressMonitor)
+                    (handler: Confidence[TypeEntity] => Unit,
+                     errorHandler: SearchFailure => Unit = _ => ()): Unit = {
+
+    def getTypeEntity(hit: Hit): Option[TypeEntity] =
+      entityAt(Location(hit.cu, hit.offset)) collect { case x: TypeEntity => x }
+
+    // Given a single super-type, find the declaration
+    def findDeclarationOfType(name: String, comparator: SymbolComparator): Unit = {
+      val (occurrences, errors) = index.findDeclarations(name, relevantProjects(entity.location))
+      errors foreach errorHandler
+      for ( occurrence <- occurrences.iterator if !monitor.isCanceled) {
+        val loc = Location(occurrence.file, occurrence.offset)
+        comparator.isSameAs(loc) match {
+          case Same         => getTypeEntity(occurrence.toHit) map Certain.apply foreach handler
+          case PossiblySame => getTypeEntity(occurrence.toHit) map Uncertain.apply foreach handler
+          case NotSame      => logger.debug(s"$occurrence wasn't the same.")
+        }
+      }
+    }
+
+    // For each super-type, find the declaration
+    def process(types: Seq[(String, SymbolComparator)]): Unit = {
+      val it = types.iterator
+      while (it.hasNext && !monitor.isCanceled()) {
+        val (name, comparator) = it.next
+        monitor.subTask(s"Finding declaration of $name")
+        findDeclarationOfType(name, comparator)
+        monitor.worked(1)
+      }
+    }
+
+    // Get all the super-types of the declared entity at the given location
+    entity.location.cu.withSourceFile { (sf, pc) =>
+      val spc = new SearchPresentationCompiler(pc)
+      for {
+        types <- spc.superTypesOf(entity) onEmpty reporter.reportError(symbolErrMsg(entity.location, sf))
+      } {
+        monitor.beginTask("Typechecking for exact matches", types.size)
+        process(types)
+      }
+      monitor.done()
+    }(reporter.reportError(s"Could not access source file ${entity.location.cu.file.path}"))
+
+
+  }
+
+  /**
    * Find all subtypes of the given `entity`. The handler recieves
    * a Confidence[TypeEntity] for each subtype. See Confidence
    * ScalaDoc for more information.
@@ -84,7 +138,7 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
           typeEntity <- declEntity match {
             case x: TypeEntity => {
               if (spc.isSubtype(entity, x)) Some(x) else {
-                logger.debug(s"$x isn't a subtype of $entity")
+                logger.debug(s"${x.name} isn't a subtype of ${entity.name}")
                 None
               }
             }

@@ -9,6 +9,7 @@ import org.eclipse.jdt.core.IClasspathEntry
 import scala.Array.canBuildFrom
 import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
 import org.scala.tools.eclipse.search.indexing.Occurrence
+import org.scala.tools.eclipse.search.TypeEntity
 
 trait SourceCreator {
 
@@ -32,6 +33,21 @@ trait SourceCreator {
         val foundnames = spc.possibleNamesOfEntityAt(Location(unit, markers.head))
         assertEquals(names, foundnames.getOrElse(Nil))
       } (fail("Couldn't get Scala source file"))
+    }
+
+    def expectedSupertypes(expectedNames: String*): Unit = {
+      unit.withSourceFile { (sf, pc) =>
+        val spc = new SearchPresentationCompiler(pc)
+        val loc = Location(unit, markers.head)
+        val enitty = spc.entityAt(loc) flatMap {
+          case x: TypeEntity => Some(x)
+          case _ => None
+        }
+        val namesAndComparators = spc.superTypesOf(enitty.get).get
+        val names = namesAndComparators.map( _._1 )
+
+        assertEquals(expectedNames, names)
+      }(fail("Couldn't get Scala source file"))
     }
 
     def expectedDeclarationNamed(name: String): Unit = {

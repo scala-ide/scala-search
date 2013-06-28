@@ -161,6 +161,30 @@ class IndexTest {
     assertEquals("A", 2, occurrences.size)
   }
 
+   @Test
+   def findDeclarationOfClass = {
+     // The occurrence collector is responsible for finding the right things
+     // to index. This test just shows that the index is capable of filtering
+     // occurrences that are declarations. Hence we don't need to test it for
+     // all kinds of declarations as they're treated in the same way (as long
+     // as they're indexed)
+
+     val project = Project("FindDeclarationOfClass")
+     val index   = TestIndex("FindDeclarationOfClass")
+     val indexer = new SourceIndexer(index)
+
+     // Add a declaration and a reference. The reference is there to
+     // make sure the references doesn't count as a declaration.
+     project.create("A.scala") {"class A"}
+     project.create("B.scala") {"class B extends A"}
+
+     indexer.indexProject(project.scalaProject)
+
+     val (occurrences, _) = index.findDeclarations("A", Set(project.scalaProject))
+
+     assertEquals("A", 1, occurrences.size)
+   }
+
   /**
    * Tests exceptional states
    */
