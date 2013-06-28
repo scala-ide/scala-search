@@ -100,6 +100,84 @@ class SearchPresentationCompilerTest {
     } expectedSymbolNamed(Some("::"))
   }
 
+  @Test
+  def nameOfEntityAt_dontShowSelfTypeAsName = {
+    project.create("NameOfEntityAtDontShowSelfTypeAsName.scala") {"""
+      trait A
+      trait |B { this: A => }
+    """
+    } expectedSymbolNamed(Some("B"))
+  }
+
+  @Test
+  def nameOfEntityAt_canHandleSelfTypeAndSubTypeCycle = {
+    project.create("NameOfEntityAtCanHandleSelfTypeAndSubTypeCycle.scala") {"""
+      trait |Moo { self: Foo => }
+      trait Foo extends Moo
+    """} expectedSymbolNamed(Some("Moo"))
+  }
+
+  @Test
+  def displayName_canHandleSelfTypeAndSubTypeCycle = {
+    project.create("DisplayNameCanHandleSelfTypeAndSubTypeCycle.scala") {"""
+      trait |Moo { self: Foo => }
+      trait Foo extends Moo
+    """} expectedDisplayName(Some("Moo"))
+  }
+
+  /**----------------------*
+   * DisplayName
+   * ----------------------*/
+
+  @Test
+  def dispalyName_doesntShowPackage = {
+    project.create("DispalyNameDoesntShowPackage.scala") {"""
+      package a {
+        class |Foo
+      }
+    """
+    } expectedDisplayName(Some("Foo"))
+  }
+
+  @Test
+  def dispalyName_showsTypeParameters = {
+    project.create("DispalyNameDoesntShowPackage.scala") {"""
+      trait |Foo[A]
+    """
+    } expectedDisplayName(Some("Foo[A]"))
+  }
+
+  @Test
+  def dispalyName_dontShowSelfTypeAsDisplayName = {
+    project.create("NameOfEntityAtDontShowSelfTypeAsDisplayName.scala") {"""
+      trait A
+      trait |B { this: A => }
+    """
+    } expectedDisplayName(Some("B"))
+  }
+
+  @Test
+  def dispalyName_showsNameOfObject = {
+    project.create("NameOfEntityAtDontShowSelfTypeAsDisplayName.scala") {"""
+      object |A
+    """
+    } expectedDisplayName(Some("A"))
+  }
+
+  @Test
+  @Ignore("Ticket #1001820")
+  def findSubclasses_CanHandleSelftypeFromOtherPackage = {
+    project.create("DisplayNameOfEntityAtCanHandleSelftypeFromOtherPackage.scala") {"""
+      package a {
+        class A
+      }
+      package b {
+        import a.A
+        trait B { this: |A => }
+      }
+   """} expectedDisplayName(Some("A"))
+  }
+
   /**----------------------*
    * Constructors
    * ----------------------*/
@@ -759,6 +837,146 @@ class SearchPresentationCompilerTest {
       trait B { this: |Foo => }
     """} expectedDeclarationNamed("B")
   }
+
+  @Test
+  def declarationContaining_IgnoresAnonymousTypes {
+    project.create("DeclarationContainingIgnoresAnonymousTypes.scala") {"""
+      object Containing {
+        trait Foo
+        trait Bar
+        new Foo with |Bar {}
+      }
+    """} expectedDeclarationNamed() // Remove when we have #1001818
+  }
+
+    /**----------------------*
+    * directSupertypes      *
+    * ----------------------*/
+
+   @Test
+   def directSupertypes_worksForClasses = {
+     // The compiler automatically adds Object if not other
+     // super-types are defined.
+     project.create("DirectSuperTypesWorksForClasses.scala"){"""
+       class |A
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForClasInheritance = {
+     // Doesn't add AnyRef when a super-type is provided
+     project.create("DirectSuperTypesWorksForClassInheritance.scala"){"""
+       class A
+       class |B extends A
+     """} expectedSupertypes("A")
+   }
+
+   @Test
+   def worksForTypesNotDefinedInProject = {
+     // So we've already tested that it finds Object, but I had some
+     // problems where it wouldn't list other types
+     project.create("DirectSuperTypesWorksForTypesNotDefinedInProject.scala") {"""
+       trait StringOrdering extends |Ordering[String] 
+     """} expectedSupertypes("Object", "Comparator", "PartialOrdering", "Serializable")
+
+   }
+
+   @Test
+   def directSupertypes_selftypeDoesntCountAsSuperTypeForClasses = {
+     // The compiler automatically adds Object if not other
+     // super-types are defined.
+     project.create("SelftypeDoesntCountAsSuperTypeForClasses.scala"){"""
+       trait A
+       class |B { this: A => }
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForTraits = {
+     // Object is injected for the super-type of A.
+     project.create("DirectSuperTypesWorksForTraits.scala"){"""
+       trait |A
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForMixins = {
+     // Compiler doesn't add Object as the super-type of a trait if it
+     // extends a class.
+     project.create("DirectSuperTypesWorksForMixins.scala"){"""
+       class A
+       trait B
+       trait |C extends A with B
+     """} expectedSupertypes("A", "B")
+   }
+
+   @Test
+   def directSupertypes_worksForMixins2 = {
+     // Compiler adds Object as the super-type if it only extends
+     // traits.
+     project.create("DirectSuperTypesWorksForMixins2.scala"){"""
+       trait A
+       trait B
+       trait |C extends A with B
+     """} expectedSupertypes("Object", "A", "B")
+   }
+
+   @Test
+   def directSupertypes_worksForObjects = {
+     // Compiler injects Object as the default super-type of modules
+     project.create("DirectSuperTypesWorksForObjects.scala"){"""
+       object |A
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForObjectsWithMixins = {
+     // Compiler adds object because A isn't a concrete class.
+     project.create("DirectSuperTypesWorksForObjectsWithMixins.scala"){"""
+       trait A
+       trait B
+       object |C extends A with B
+     """} expectedSupertypes("Object", "A", "B")
+   }
+
+   @Test
+   def directSupertypes_selftypeDoesntCountAsSuperTypeForTraits = {
+     // Compiler still adds Object as super-type of B
+     project.create("SelftypeDoesntCountAsSuperTypeForTraits.scala"){"""
+       trait A
+       trait |B { this: A => }
+     """} expectedSupertypes("Object")
+   }
+
+   @Test
+   def directSupertypes_worksForMixedClassAndSelftype = {
+     // still want to make sure it doesn't list self-type
+     project.create("DirectSuperTypesWorksForMixedClassAndSelfType.scala"){"""
+       class A
+       trait B
+       trait |C extends A { this: B => }
+     """} expectedSupertypes("A")
+   }
+
+   @Test
+   def directSupertypes_selftypeWithMixinsShouldStillBeIgnored = {
+     // Compiler adds object because A isn't a concrete class.
+     project.create("DirectSuperTypesWorksSelftypeWithMixinsShouldStillBeIgnored.scala"){"""
+       trait A
+       trait B
+       trait C
+       trait |D extends A { this: B with C => }
+     """} expectedSupertypes("Object", "A")
+   }
+
+   @Test
+   def directSupertypes_worksForIntertanceWithTypeParameters = {
+     // Doesn't add AnyRef when a super-type is provided
+     project.create("DirectSuperTypesWorksForIntertanceWithTypeParameters.scala"){"""
+       trait A[X]
+       class |B extends A[String]
+     """} expectedSupertypes("Object", "A")
+   }
 
   /**----------------------*
    * Various               *

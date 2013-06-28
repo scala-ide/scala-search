@@ -15,6 +15,7 @@ import org.scala.tools.eclipse.search.TypeEntity
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.Occurrence
 import org.scala.tools.eclipse.search.indexing.SearchFailure
+import scala.collection.mutable
 
 /**
  * Component that provides various methods related to finding Scala entities.
@@ -47,18 +48,14 @@ import org.scala.tools.eclipse.search.indexing.SearchFailure
  */
 class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
 
-  private val finder: ProjectFinder = new ProjectFinder
-
   /**
-   * Find the Entity at the given Location. Returns
-   * None if it couldn't type-check the given
-   * location.
+   * Find the Entity at the given Location.
    */
-  def entityAt(loc: Location): Option[Entity] = {
+  def entityAt(loc: Location): Either[CompilerProblem, Option[Entity]] = {
     loc.cu.withSourceFile { (sf, pc) =>
       val spc = new SearchPresentationCompiler(pc)
       spc.entityAt(loc)
-    }(None)
+    }(Left(CantLoadFile))
   }
 
   /**
@@ -68,26 +65,42 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
    *
    * Errors are passed to `errorHandler`.
    */
-  def findSubtypes(entity: TypeEntity, monitor: IProgressMonitor)
+  def findSubtypes(entity: TypeEntity, scope: Scope, monitor: IProgressMonitor)
                   (handler: Confidence[TypeEntity] => Unit,
                    errorHandler: SearchFailure => Unit = _ => ()): Unit = {
 
-    val loc = Location(entity.location.cu, entity.location.offset)
+    /*
+     *  A short description of how we find the sub-types
+     *
+     *  Step 1: Based on the name of the `entity` we look for all
+     *          the locations where the entity is mentioned in the
+     *          declaration of another type.
+     *  Step 2: For each declaration we found from the index, filter
+     *          out the occurrences that are hits of the `entity`, i.e.
+     *          use the compiler to take care of ambiguities as we always do
+     *  Step 3: For each of these occurrence, get the TypeEntity of the
+     *          enclosing declaration
+     */
+
+    // Just this to make sure a sub-type isn't reported twice.
+    // I.e. when finding subtypes of Foo it won't list Bar twice in
+    // the following example: `trait Bar extends Foo[Foo[String]]`
+    // see test 'FinderTest.findAllSubclasses_worksWithNestedTypeConstructors'
+    val alreadyReportedNames = new mutable.ListBuffer[String]
 
     // Get the declaration that contains the given `hit`.
     def getTypeEntity(hit: Hit): Option[TypeEntity] = {
       hit.cu.withSourceFile { (sf,pc) =>
         val spc = new SearchPresentationCompiler(pc)
         for {
-          declaration <- spc.declarationContaining(Location(hit.cu, hit.offset))
-          declEntity <- entityAt(Location(declaration.file, declaration.offset))
+          declEntity <- spc.declarationContaining(Location(hit.cu, hit.offset)).right.toOption.flatten //TODO: Report error
           typeEntity <- declEntity match {
-            case x: TypeEntity => {
-              if (spc.isSubtype(entity, x)) Some(x) else {
-                logger.debug(s"$x isn't a subtype of $entity")
-                None
-              }
-            }
+            // A type can reference it-self in it's super-types so we have this
+            // guard to make sure that it doesn't list itself as a sub-type.
+            // See test 'FinderTest.findAllSubclassesIgnoresTypeConstructorArguments'
+            case x: TypeEntity if x.name != entity.name && !alreadyReportedNames.contains(x.name) =>
+              alreadyReportedNames.append(x.name)
+              Some(x)
             case _ => None
           }
         } yield typeEntity
@@ -101,18 +114,11 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
       case Uncertain(hit) => getTypeEntity(hit) map Uncertain.apply foreach handler
     }
 
-    entity.location.cu.withSourceFile { (sf, pc) =>
-      val spc = new SearchPresentationCompiler(pc)
-      for {
-        comparator <- spc.comparator(loc) onEmpty reporter.reportError(comparatorErrMsg(loc, sf))
-      } {
-        val (occurrences, failures) = index.findOccurrencesInSuperPosition(entity.name, relevantProjects(loc))
-        failures.foreach(errorHandler)
-        monitor.beginTask("Typechecking for exact matches", occurrences.size)
-        processSame(occurrences, monitor, comparator, onHit)
-        monitor.done()
-      }
-    }(reporter.reportError(s"Could not access source file ${loc.cu.file.path}"))
+    val (occurrences, failures) = index.findOccurrencesInSuperPosition(entity.name, scope)
+    failures.foreach(errorHandler)
+    monitor.beginTask("Typechecking for exact matches", occurrences.size)
+    processSame(entity, occurrences, monitor, onHit)
+    monitor.done()
   }
 
   /**
@@ -124,24 +130,16 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
    *
    * Errors are passed to `errorHandler`.
    */
-  def occurrencesOfEntityAt(entity: Entity, monitor: IProgressMonitor)
+  def occurrencesOfEntityAt(entity: Entity, scope: Scope, monitor: IProgressMonitor)
                            (handler: Confidence[Hit] => Unit,
                             errorHandler: SearchFailure => Unit = _ => ()): Unit = {
 
-    // Get the symbol under the cursor. Use it to find other occurrences.
-    entity.location.cu.withSourceFile { (sf, pc) =>
-      val spc = new SearchPresentationCompiler(pc)
-      for {
-        comparator <- spc.comparator(entity.location) onEmpty reporter.reportError(comparatorErrMsg(entity.location, sf))
-        names      <- spc.possibleNamesOfEntityAt(entity.location) onEmpty reporter.reportError(symbolErrMsg(entity.location, sf))
-      } {
-        val (occurrences, failures) = index.findOccurrences(names, relevantProjects(entity.location))
-        failures.foreach(errorHandler)
-        monitor.beginTask("Typechecking for exact matches", occurrences.size)
-        processSame(occurrences, monitor, comparator, handler)
-        monitor.done()
-      }
-    }(reporter.reportError(s"Could not access source file ${entity.location.cu.file.path}"))
+    val names = entity.alternativeNames
+    val (occurrences, failures) = index.findOccurrences(names, scope)
+    failures.foreach(errorHandler)
+    monitor.beginTask("Typechecking for exact matches", occurrences.size)
+    processSame(entity, occurrences, monitor, handler)
+    monitor.done()
   }
 
   // Loop through 'occurrences' and use the 'comparator' to find the
@@ -149,28 +147,21 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
   // The 'monitor' is needed to make it possible to cancel it and
   // report progress.
   private def processSame(
+      entity: Entity,
       occurrences: Seq[Occurrence],
       monitor: IProgressMonitor,
-      comparator: SymbolComparator,
       handler: Confidence[Hit] => Unit): Unit = {
-    val it = occurrences.iterator
-    while (it.hasNext && !monitor.isCanceled()) {
-      val occurrence = it.next
+
+    for { occurrence <- occurrences if !monitor.isCanceled } {
       monitor.subTask(s"Checking ${occurrence.file.file.name}")
       val loc = Location(occurrence.file, occurrence.offset)
-      comparator.isSameAs(loc) match {
+      entity.isReference(loc) match {
         case Same         => handler(Certain(occurrence.toHit))
         case PossiblySame => handler(Uncertain(occurrence.toHit))
         case NotSame      => logger.debug(s"$occurrence wasn't the same.")
       }
       monitor.worked(1)
     }
-  }
-
-  private def relevantProjects(loc: Location): Set[ScalaProject] = {
-    val enclosingProject = loc.cu.scalaProject.underlying
-    val all =  finder.projectClosure(enclosingProject)
-    all.map(ScalaPlugin.plugin.asScalaProject(_)).flatten
   }
 
   private def comparatorErrMsg(location: Location, sf: SourceFile) =
