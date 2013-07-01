@@ -330,7 +330,7 @@ trait Index extends HasLogger {
       (for {
         project        <- Option(root.getProject(projectName))
         ifile          <- Option(project.getFile(Path.fromPortableString(path)))
-        file           <- Util.scalaSourceFileFromIFile(ifile)
+        file           <- Util.scalaSourceFileFromIFile(ifile) if ifile.exists
       } yield {
         Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind), lineContent, isSuper)
       }).fold {
