@@ -390,6 +390,22 @@ class SearchPresentationCompilerTest {
   }
 
   @Test
+  def isSameMethod_canDistinguishBetweenLocalMethods {
+    project.create("CanDistinguishBetweenLocalVals.scala") {"""
+      class A {
+        def foo = {
+          def |testDef = ""
+        }
+      }
+      class B {
+        def foo = {
+          def |testDef = ""
+        }
+      }
+    """} isSame(false)
+  }
+
+  @Test
   def isSameMethod_canHandleSubclasses {
     project.create("CanHandleSubclasses.scala") {"""
       class A {
@@ -609,6 +625,23 @@ class SearchPresentationCompilerTest {
       }"""} isSame(true)
   }
 
+  @Test
+  def isSameVar_canDistinguishBetweenLocalVars {
+    project.create("CanDistinguishBetweenLocalVars.scala") {"""
+      class A {
+        def foo = {
+          var |testVar = ""
+        }
+      }
+
+      class b {
+        def foo = {
+          var |testVar = ""
+        }
+      }
+    """} isSame(false)
+  }
+
   /**----------------------*
    * Vals                  *
    * ----------------------*/
@@ -634,6 +667,22 @@ class SearchPresentationCompilerTest {
         A.val|ue
       }
     """} isSame(true)
+  }
+
+  @Test
+  def isSameVar_canDistinguishBetweenLocalVals {
+    project.create("CanDistinguishBetweenLocalVals.scala") {"""
+      class A {
+        def foo = {
+          val |testVal = ""
+        }
+      }
+      class B {
+        def foo = {
+          val |testVal = ""
+        }
+      }
+    """} isSame(false)
   }
 
   /**------------------------*
