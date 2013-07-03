@@ -172,7 +172,8 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   def comparator(loc: Location): Option[SymbolComparator] = {
 
     def compare(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = pc.askOption { () =>
-      if (isValOrVar(s1)) isSameValOrVar(s1, s2)
+      if (s1.isLocal || s2.isLocal) isSameSymbol(s1,s2)
+      else if (isValOrVar(s1)) isSameValOrVar(s1, s2)
       else if (s1.isMethod) isSameMethod(s1.asMethod, s2)
       else isSameSymbol(s1, s2)
     } flatten
