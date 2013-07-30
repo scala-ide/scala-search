@@ -27,13 +27,18 @@ import org.scala.tools.eclipse.search.Observing
  *
  * It uses a FileChangeObserver to keep track of files in the project that
  * needs to be re-indexed.
+ *
+ * The ProjectIndexJob does not lock the workspace while running. We don't need
+ * to as any changes made to the workspace during indexing will eventually be
+ * reported through the events sent by Eclipse and the index will be updated
+ * accordingly.
  */
 class ProjectIndexJob private (
   indexer: SourceIndexer,
   project: ScalaProject,
   interval: Long,
   onStopped: (ProjectIndexJob) => Unit = _ => ()
-) extends WorkspaceJob("Project Indexing Job: " + project.underlying.getName) with HasLogger {
+) extends Job("Project Indexing Job: " + project.underlying.getName) with HasLogger {
 
   private trait FileEvent
   private case object Added extends FileEvent
@@ -71,7 +76,7 @@ class ProjectIndexJob private (
     )
   }
 
-  override def runInWorkspace(monitor: IProgressMonitor): IStatus = {
+  override def run(monitor: IProgressMonitor): IStatus = {
 
     if (monitor.isCanceled()) {
       stopped()
@@ -165,7 +170,6 @@ object ProjectIndexJob extends HasLogger {
 
     val job = new ProjectIndexJob(indexer, sp, interval, onStopped)
     job.setup
-    job.setRule(ResourcesPlugin.getWorkspace().getRuleFactory().modifyRule(sp.underlying))
     job.setPriority(Job.LONG)
     job
   }
