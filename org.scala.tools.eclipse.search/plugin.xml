@@ -93,8 +93,7 @@
      <key
          commandId="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy"
          schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
-         contextId="scala.tools.eclipse.scalaEditorScope"
-         sequence="F4"/>
+         sequence="CTRL+F4"/>
   </extension>
 
 </plugin>
