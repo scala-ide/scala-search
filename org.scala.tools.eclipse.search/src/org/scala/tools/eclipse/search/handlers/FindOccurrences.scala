@@ -22,11 +22,13 @@ import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 import org.scala.tools.eclipse.search.ui.SearchResult
 import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler
 import org.scala.tools.eclipse.search.indexing.SearchFailure
-import scala.tools.eclipse.util.Utils.any2optionable
+import scala.tools.eclipse.util.Utils._
 import scala.tools.eclipse.ScalaSourceFileEditor
-import org.scala.tools.eclipse.search.searching.ExactHit
-import org.scala.tools.eclipse.search.searching.PotentialHit
+import org.scala.tools.eclipse.search.searching.Certain
+import org.scala.tools.eclipse.search.searching.Uncertain
 import scala.tools.eclipse.javaelements.ScalaSourceFile
+import org.scala.tools.eclipse.search.searching.Confidence
+import org.eclipse.search.ui.text.Match
 
 class FindOccurrences
   extends AbstractHandler
@@ -41,48 +43,51 @@ class FindOccurrences
       scalaEditor <- editor.asInstanceOfOpt[ScalaSourceFileEditor] onEmpty reporter.reportError("Active editor wasn't a Scala editor")
       selection   <- UIUtil.getSelection(scalaEditor) onEmpty reporter.reportError("You need to have a selection")
     } {
-      val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
-
-      val (name, supported) = scalaEditor.getInteractiveCompilationUnit.withSourceFile { (_, pc) =>
+      scalaEditor.getInteractiveCompilationUnit.withSourceFile { (_, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        (spc.nameOfEntityAt(loc), spc.canFindReferences(loc))
-      }(None, false)
-
-      if (supported) {
-        NewSearchUI.runQueryInBackground(new ISearchQuery(){
-
-          val sr = new SearchResult(this)
-
-          @volatile var hitsCount = 0
-          @volatile var potentialHitsCount = 0
-
-          override def canRerun(): Boolean = false
-          override def canRunInBackground(): Boolean = true
-
-          override def getLabel: String =
-            s"'${name.getOrElse("selection")}' - ${hitsCount} exact matches, $potentialHitsCount potential matches. Total ${hitsCount+potentialHitsCount}"
-
-          override def run(monitor: IProgressMonitor): IStatus = {
-            finder.occurrencesOfEntityAt(loc, monitor)(
-                hit = (r: ExactHit) => {
-                  hitsCount += 1
-                  sr.addMatch(r.toMatch)
-                },
-                potentialHit = (r: PotentialHit) => {
-                  potentialHitsCount  += 1
-                  sr.addMatch(r.toMatch)
-                },
-                errorHandler = (fail: SearchFailure) => {
-                  logger.debug(s"Got an error ${fail}")
-                })
-            Status.OK_STATUS
-          }
-          override def getSearchResult(): ISearchResult = sr
-        })
-      } else reporter.reportError("Sorry, find occurrences only supports methods for now")
+        val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
+        spc.entityAt(loc) map { entity =>
+          if (spc.canFindReferences(entity)) {
+            startSearch(entity)
+          } else reporter.reportError("Sorry, that kind of entity isn't supported yet.")
+        } getOrElse(reporter.reportError("Couldn't recognize the enity of the selection"))
+      }()
     }
-    // According to the Eclipse docs we have to return null.
-    null
+
+    null // According to the Eclipse docs we have to return null.
+  }
+
+  private def startSearch(entity: Entity): Unit = {
+    NewSearchUI.runQueryInBackground(new ISearchQuery(){
+
+      val sr = new SearchResult(this)
+
+      @volatile var hitsCount = 0
+      @volatile var potentialHitsCount = 0
+
+      override def canRerun(): Boolean = false
+      override def canRunInBackground(): Boolean = true
+
+      override def getLabel: String =
+        s"'${entity.name}' - ${hitsCount} exact matches, $potentialHitsCount potential matches. Total ${hitsCount+potentialHitsCount}"
+
+      override def run(monitor: IProgressMonitor): IStatus = {
+        finder.occurrencesOfEntityAt(entity, monitor)(
+            handler = (h: Confidence[Hit]) => h match {
+              case Certain(hit) =>
+                hitsCount += 1
+                sr.addMatch(new Match(h, hit.offset, hit.word.length))
+              case Uncertain(hit) =>
+                potentialHitsCount  += 1
+                sr.addMatch(new Match(h, hit.offset, hit.word.length))
+            },
+            errorHandler = (fail: SearchFailure) => {
+              logger.debug(s"Got an error ${fail}")
+            })
+        Status.OK_STATUS
+      }
+      override def getSearchResult(): ISearchResult = sr
+    })
   }
 
 }

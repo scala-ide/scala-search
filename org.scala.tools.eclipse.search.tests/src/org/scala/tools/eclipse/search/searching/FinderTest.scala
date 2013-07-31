@@ -20,6 +20,7 @@ import scala.util.Failure
 import java.io.IOException
 import org.junit.After
 import org.junit.Before
+import org.scala.tools.eclipse.search.TypeEntity
 
 class FinderTest {
 
@@ -59,7 +60,8 @@ class FinderTest {
     indexer.indexProject(project.scalaProject)
 
     @volatile var results = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor) { loc =>
+    val location = Location(sourceA.unit, sourceA.markers.head)
+    find(finder, location) { hit =>
       results += 1
       hitLatch.countDown
     }
@@ -99,7 +101,8 @@ class FinderTest {
     indexer.indexProject(project.scalaProject)
 
     @volatile var results = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor) { loc =>
+    val location = Location(sourceA.unit, sourceA.markers.head)
+    find(finder, location) { hit =>
       results += 1
       hitLatch.countDown
     }
@@ -138,11 +141,16 @@ class FinderTest {
 
     @volatile var resultsForGetter = 0
     @volatile var resultsForSetter = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(0)), new NullProgressMonitor) { loc =>
+
+    val loc1 = Location(sourceA.unit, sourceA.markers(0))
+    val loc2 = Location(sourceA.unit, sourceA.markers(1))
+
+    find(finder, loc1) { hit =>
       resultsForGetter += 1
       hitLatch.countDown
     }
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers(1)), new NullProgressMonitor) { loc =>
+
+    find(finder, loc2) { hit =>
       resultsForSetter += 1
       hitLatch.countDown
     }
@@ -189,7 +197,8 @@ class FinderTest {
     indexer.indexProject(project2.scalaProject)
 
     @volatile var results = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor) { loc =>
+    val location = Location(sourceA.unit, sourceA.markers.head)
+    find(finder, location) { hit =>
       results += 1
       hitLatch.countDown
     }
@@ -227,6 +236,12 @@ class FinderTest {
     trait |Foo
     trait |Bar { this: Foo => }
   """}
+
+  @Test
+  def findAllSubclassesIgnoresTypeConstructorArguments = subclassesNamed("WorksWithSelfTypes"){"""
+    trait Bar[A]
+    trait |Foo extends Bar[Foo]
+  """}(Nil) // I.e. make sure that Foo doesn't count as a subtype of Foo.
 
   /*
    * -------------------
@@ -281,15 +296,19 @@ class FinderTest {
 
     @volatile var hits = 0
     @volatile var failures = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor)(
-      hit = _ => {
-        hits += 1
-        hitLatch.countDown
-      },
-      errorHandler = _ => {
-        failures += 1
-        hitLatch.countDown
-      })
+
+    val location = Location(sourceA.unit, sourceA.markers.head)
+    finder.entityAt(location) map { entity =>
+      finder.occurrencesOfEntityAt(entity, new NullProgressMonitor)(
+        handler = _ => {
+          hits += 1
+          hitLatch.countDown
+        },
+        errorHandler = _ => {
+          failures += 1
+          hitLatch.countDown
+        })
+    }
 
     hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
@@ -332,15 +351,17 @@ class FinderTest {
 
     @volatile var hits = 0
     @volatile var potentialHits = 0
-    finder.occurrencesOfEntityAt(Location(sourceA.unit, sourceA.markers.head), new NullProgressMonitor)(
-      hit = loc => {
+    val location = Location(sourceA.unit, sourceA.markers.head)
+    find(finder, location) {
+      case Certain(_) => {
         hits += 1
         hitLatch.countDown
-      },
-      potentialHit = loc => {
+      }
+      case Uncertain(_) => {
         potentialHits += 1
         hitLatch.countDown
-      })
+      }
+    }
 
     hitLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)
 
@@ -383,10 +404,15 @@ object FinderTest extends TestUtil
     indexer.indexProject(project.scalaProject)
 
     var hitsOffsets = List[Int]()
-    finder.findAllSubclasses(Location(source.unit, source.markers.head), new NullProgressMonitor) { hit =>
-      if (source.markers.contains(hit.offset)) {
-        hitsOffsets = hit.offset +: hitsOffsets
+
+    val location = Location(source.unit, source.markers.head)
+    finder.entityAt(location) foreach {
+      case entity: TypeEntity => finder.findSubtypes(entity, new NullProgressMonitor) { hit =>
+        if (source.markers.contains(hit.value.location.offset)) {
+          hitsOffsets = hit.value.location.offset :: hitsOffsets
+        }
       }
+      case x => fail(s"Expected a subclass of TypeEntity, but got $x")
     }
 
     val notFound = source.markers.tail.filter(!hitsOffsets.contains(_))
@@ -394,8 +420,43 @@ object FinderTest extends TestUtil
     project.delete
 
     assertEquals(
-        s"Expected it to find subclasses at all markers, but didn't find: ${notFound}, found ${hitsOffsets}", 
+        s"Expected it to find subclasses at all markers, but didn't find: ${notFound}, found ${hitsOffsets}",
         true, notFound.isEmpty)
+  }
+
+  def subclassesNamed(name: String)(text: String)(names: List[String]): Unit = {
+    val project = Project(s"FindAllSubclassesNamedTest-$name")
+
+    val indexer = anonymousIndexer
+    val finder = anonymousFinder(indexer.index)
+
+    val source = project.create(s"$name.scala")(text)
+
+    indexer.indexProject(project.scalaProject)
+
+    var hitNames = List[String]()
+
+    val location = Location(source.unit, source.markers.head)
+    finder.entityAt(location) foreach {
+      case entity: TypeEntity => finder.findSubtypes(entity, new NullProgressMonitor) { hit =>
+        if (source.markers.contains(hit.value.location.offset)) {
+          hitNames = hit.value.name +: hitNames
+        }
+      }
+      case x => fail(s"Expected a subclass of TypeEntity, but got $x")
+    }
+
+    project.delete
+
+    assertEquals(names.toSet, hitNames.toSet)
+  }
+
+  def find(finder: Finder, loc: Location)(f: Confidence[Hit] => Unit): Unit = {
+    finder.entityAt(loc) map { entity =>
+      finder.occurrencesOfEntityAt(entity, new NullProgressMonitor)(
+        handler = h => f(h)
+      )
+    } getOrElse fail("Couldn't get entity")
   }
 
 }

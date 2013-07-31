@@ -9,7 +9,7 @@ import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.resources.IResource
 import scala.tools.eclipse.ScalaPlugin
-import scala.tools.eclipse.util.Utils.any2optionable
+import scala.tools.eclipse.util.Utils._
 
 
 /**

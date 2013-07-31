@@ -15,8 +15,8 @@ import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
 import org.scala.tools.eclipse.search.UIUtil
 import scala.tools.eclipse.ScalaImages
-import org.scala.tools.eclipse.search.searching.ExactHit
-import org.scala.tools.eclipse.search.searching.PotentialHit
+import org.scala.tools.eclipse.search.searching.Certain
+import org.scala.tools.eclipse.search.searching.Uncertain
 
 /**
  * Responsible for telling Eclipse how to render the results in the
@@ -36,14 +36,14 @@ class ResultLabelProvider extends StyledCellLabelProvider with HasLogger {
         text.append(str)
         text.append(" (%s)".format(count), StyledString.COUNTER_STYLER)
         cell.setImage(ScalaImages.SCALA_FILE.createImage())
-      case ExactHit(_,_,line, _) =>
+      case Certain(Hit(_,_,line, _)) =>
         val styled = new StyledString(line.trim)
         text.append(styled)
-      case PotentialHit(_,_,line,_) =>
+      case Uncertain(Hit(_,_,line,_)) =>
         val styled = new StyledString(s"(?) ${line.trim}")
         text.append(styled)
       case x =>
-        logger.debug(s"Expected content of either a tuple or Result, got: ${x}")
+        logger.debug(s"Expected content of either a tuple or Confidence[Hit], got: ${x}")
     }
 
     cell.setText(text.toString)
