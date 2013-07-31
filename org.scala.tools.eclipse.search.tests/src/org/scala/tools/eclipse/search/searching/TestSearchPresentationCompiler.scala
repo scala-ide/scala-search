@@ -8,21 +8,17 @@ import scala.tools.eclipse.ScalaPresentationCompiler
 class TestSearchPresentationCompiler(pc: ScalaPresentationCompiler) extends SearchPresentationCompiler(pc) {
 
   def isNoSymbol(loc: Location): Boolean = {
-    loc.cu.withSourceFile{ (sf, pc) =>
-      symbolAt(loc, sf) match {
-        case MissingSymbol => true
-        case x => false
-      }
-    }(false)
+    symbolAt(loc) match {
+      case MissingSymbol => true
+      case x => false
+    }
   }
 
   def isTypeError(loc: Location): Boolean = {
-    loc.cu.withSourceFile{ (sf, pc) =>
-      symbolAt(loc, sf) match {
-        case NotTypeable => true
-        case x => false
-      }
-    }(false)
+    symbolAt(loc) match {
+      case NotTypeable => true
+      case x => false
+    }
   }
 
 }

@@ -8,6 +8,8 @@ import org.eclipse.search.ui.text.IFileMatchAdapter
 import org.scala.tools.eclipse.search.searching.Hit
 import org.eclipse.search.ui.text.Match
 import scala.tools.eclipse.ScalaImages
+import org.scala.tools.eclipse.search.searching.Confidence
+import org.scala.tools.eclipse.search.Util
 
 /**
  * Represents the result of executing a search query against Scala
@@ -46,12 +48,12 @@ class SearchResult(query: ISearchQuery) extends AbstractTextSearchResult {
    */
   def getTooltip(): String = query.getLabel
 
-  def resultsGroupedByFile: Map[String, Array[Hit]] = {
+  def resultsGroupedByFile: Map[String, Array[Confidence[Hit]]] = {
     // TODO: Cache this, for speed improvements
-    val res = this.getElements.map(_.asInstanceOf[Hit])
+    val res = this.getElements.map(_.asInstanceOf[Confidence[Hit]])
 
-    res.filter(MatchAdatperHelper.getWorkspaceFile(_).isDefined)
-       .groupBy(_.cu.workspaceFile.getProjectRelativePath().toOSString)
+    res.filter( x => Util.getWorkspaceFile(x.value.cu).isDefined)
+       .groupBy(_.value.cu.workspaceFile.getProjectRelativePath().toOSString)
   }
 
 }
