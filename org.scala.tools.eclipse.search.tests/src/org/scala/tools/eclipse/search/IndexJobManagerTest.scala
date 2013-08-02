@@ -1,98 +1,86 @@
 package org.scala.tools.eclipse.search
 
-import scala.tools.eclipse.testsetup.TestProjectSetup
-import org.junit.{ Test, Before, After }
-import org.junit.Assert._
+import java.util.concurrent.CountDownLatch
+import scala.tools.eclipse.ScalaProject
+import scala.tools.eclipse.javaelements.ScalaSourceFile
+import scala.tools.eclipse.logging.HasLogger
+import org.eclipse.core.resources.IProject
+import org.eclipse.core.runtime.IPath
 import org.eclipse.core.runtime.NullProgressMonitor
-import java.io.File
+import org.eclipse.core.runtime.Path
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
+import org.scala.tools.eclipse.search.searching.SourceCreator
+import IndexJobManagerTest.EVENT_DELAY
+import IndexJobManagerTest.Project
+import IndexJobManagerTest.mkPath
+import scala.util.Try
+import org.eclipse.core.resources.IFile
 import scala.tools.eclipse.testsetup.SDTTestUtils
-import org.eclipse.core.resources.ResourcesPlugin
-import org.eclipse.core.runtime.Path
-import java.util.concurrent.CountDownLatch
-import org.eclipse.core.resources.IProject
-import scala.tools.eclipse.ScalaPlugin
 
-class IndexJobManagerTest {
+class IndexJobManagerTest extends HasLogger {
 
-  import SDTTestUtils._
   import IndexJobManagerTest._
 
-  @volatile var indexer: SourceIndexer = _
-  @volatile var indexManager: IndexJobManager = _
-
-  @Before
-  def setup {
-    val index = new Index {
-      override val base = new Path(mkPath("target","index-job-manager-test"))
-    }
-    indexer = new SourceIndexer(index)
-    indexManager = new IndexJobManager(indexer) 
-    indexManager.startup()
-  }
-
-  @After
-  def teardown {
-    indexer = null
-    indexManager.shutdown()
-    indexManager = null
+  @Test
+  def canProgramaticallyStartTrackingProject() {
+    // Precondition
+    val project = Project("CanProgramaticallyStartTrackingProject")
+    val manager = anonymousManager(project)
+    // Event
+    manager.startTrackingChanges(project.scalaProject.underlying)
+    // Result
+    assertTrue("Expected that the manger was tracking changes, it isn't", manager.isTrackingChanges(project.scalaProject.underlying))
+    manager.shutdown
   }
 
   @Test
-  def canProgramaticallyStartAnIndexingJob() {
+  def canProgramaticallyStopTracking() {
     // Precondition
-    assertTrue(project.underlying.isOpen())
-
+    val project = Project("CanProgramaticallyStopTracking")
+    val manager = anonymousManager(project)
+    assertTrue(project.scalaProject.underlying.isOpen())
+    assertFalse(manager.isTrackingChanges(project.scalaProject.underlying))
+    manager.startTrackingChanges(project.scalaProject.underlying)
+    assertTrue(manager.isTrackingChanges(project.scalaProject.underlying))
     // Event
-    indexManager.startIndexing(project.underlying)
-
+    manager.stopTrackingChanges(project.scalaProject.underlying)
     // Result
-    assertTrue(indexManager.isIndexing(project.underlying))
-  }
-
-  @Test
-  def canProgramaticallyStopAnIndexingJob() {
-    // Precondition
-    assertTrue(project.underlying.isOpen())
-    assertFalse(indexManager.isIndexing(project.underlying))
-    indexManager.startIndexing(project.underlying)
-    assertTrue(indexManager.isIndexing(project.underlying))
-
-    // Event
-    indexManager.stopIndexing(project.underlying)
-
-    // Result
-    assertFalse(indexManager.isIndexing(project.underlying))
+    assertFalse("Expected the the manager stopped tracking changes. It didn't.", manager.isTrackingChanges(project.scalaProject.underlying))
+    manager.shutdown
   }
 
   @Test
   def startsIndexingJobWhenProjectIsOpened() {
+    val name = "StartsIndexingJobWhenProjectIsOpened"
 
     val latch = new CountDownLatch(1)
-
     val observer = ProjectChangeObserver(onOpen = (p: IProject) => {
       latch.countDown()
     })
 
-    // preconditions
-    assertTrue(project.underlying.isOpen())
-    assertFalse(indexManager.isIndexing(project.underlying))
+    testStandardSetup(name) { (manager, project) =>
+      // preconditions
+      assertTrue("Expected the project to be open", project.scalaProject.underlying.isOpen())
+      // event
+      project.scalaProject.underlying.close(monitor)
+      project.scalaProject.underlying.open(monitor)
+      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      // reaction
+      assertTrue("Expected that the manger was tracking changes, it isn't", manager.isTrackingChanges(project.scalaProject.underlying))
+    }
 
-    // event
-    project.underlying.close(monitor)
-    project.underlying.open(monitor)
-    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
-
-    // reaction
-    assertTrue(indexManager.isIndexing(project.underlying))
     observer.stop
   }
 
   @Test
   def startsIndexingJobWhenProjectIsCreated() {
 
-    val name = "IndexJobManagerTest-ToBeCreated"
+    val name = "StartsIndexingJobWhenProjectIsCreated"
     val latch = new CountDownLatch(1)
 
     val observer = ProjectChangeObserver(onNewScalaProject = (p: IProject) => {
@@ -100,18 +88,17 @@ class IndexJobManagerTest {
         latch.countDown()
     })
 
-    // event
-    val p = createProjects(name).head
-    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
-
-    // reaction
-    assertTrue(indexManager.isIndexing(p.underlying))
+    testStandardSetup(name) { (manager, project) =>
+      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      assertTrue(manager.isTrackingChanges(project.scalaProject.underlying))
+    }
 
     observer.stop
   }
 
   @Test
   def stopIndexingJobWhenProjectIsClosed() {
+    val name = "StopIndexingJobWhenProjectIsClosed"
 
     val latch = new CountDownLatch(1)
 
@@ -119,25 +106,25 @@ class IndexJobManagerTest {
       latch.countDown()
     })
 
-    // precondition
-    assertTrue(project.underlying.isOpen())
-    indexManager.startIndexing(project.underlying)
-    assertTrue(indexManager.isIndexing(project.underlying))
+    testStandardSetup(name) { (manager, project) => 
+      // precondition
+      assertTrue("Expected the project to be open", project.scalaProject.underlying.isOpen())
+      assertTrue("Expected the manger to be tracking changes", manager.isTrackingChanges(project.scalaProject.underlying))
+      // event
+      project.scalaProject.underlying.close(monitor)
+      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      // reaction
+      assertFalse("The project should be closed, but it's open", project.scalaProject.underlying.isOpen())
+      assertFalse("The manager shouldn't be tracking changes, but it is", manager.isTrackingChanges(project.scalaProject.underlying))
+    }
 
-    // event
-    project.underlying.close(monitor)
-    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
-
-    // reaction
-    assertFalse(project.underlying.isOpen())
-    assertFalse(indexManager.isIndexing(project.underlying))
     observer.stop
   }
 
   @Test
   def stopIndexingJobWhenProjectIsDeleted() {
 
-    val name = "IndexJobManagerTest-ToBeDeleted"
+    val name = "StopIndexingJobWhenProjectIsDeleted"
     val createdLatch = new CountDownLatch(1)
     val deletedLatch = new CountDownLatch(1)
 
@@ -151,75 +138,169 @@ class IndexJobManagerTest {
           deletedLatch.countDown()
       })
 
-    // set-up
-    val p = createProjects(name).head
-    createdLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+    testStandardSetup(name) { (manager, project) =>
+      // preconditions
+      createdLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      assertTrue(manager.isTrackingChanges(project.scalaProject.underlying))
+      // event
+      project.scalaProject.underlying.delete(true, monitor)
+      deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      // expected
+      assertFalse("Expected the manger to have stopped tracking changes", manager.isTrackingChanges(project.scalaProject.underlying))
+    }
 
-    // preconditions
-    assertTrue(indexManager.isIndexing(p.underlying))
-
-    // event
-    p.underlying.delete(true, monitor)
-    deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
-
-    // expected
-    assertFalse(indexManager.isIndexing(p.underlying))
     observer.stop
   }
 
   @Test
   def deletesIndexWhenProjectIsDeleted() {
-    val name = "IndexJobManagerTest-ToBeDeletedIndex"
-    val fileName = "Test.scala"
-    val createdLatch = new CountDownLatch(1)
-    val deletedLatch = new CountDownLatch(1)
-    val fileAddedLatch = new CountDownLatch(1)
+    val name = "DeletesIndexWhenProjectIsDeleted"
 
-    val observer = ProjectChangeObserver(
-      onNewScalaProject = (p: IProject) => {
-        if (p.getName == name)
-          createdLatch.countDown()
-      },
-      onDelete = (p: IProject) => {
-        if (p.getName == name)
-          deletedLatch.countDown()
-      })
+    @volatile var invoked = false
+    val invokedLatch = new CountDownLatch(1)
 
-    // set-up
-    val p = createProjects(name).head
-    createdLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+    val index = new Index {
+      override val base = new Path(mkPath("target",name))
+      override def deleteIndex(project: IProject): Try[Boolean] = {
+        invoked = true
+        invokedLatch.countDown()
+        super.deleteIndex(project)
+      }
+    }
 
-    val files = FileChangeObserver(p)(onAdded = file => {
-      if (file.getName() == fileName)
-        fileAddedLatch.countDown()
-    })
-
-    addSourceFile(p)(fileName, "class Test")
-
-    // preconditions
-    fileAddedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
-
-    // We can't use a latch here because we have to know when a specific file
-    // has been indexed. Instead until the index has been created on disc, as
-    // we know that will happen once it has indexed the file. We wait no longer
-    // than 10 seconds.
-    SDTTestUtils.waitUntil(10000)(indexer.index.location(p.underlying).toFile.exists)
-
-    assertTrue(indexer.index.location(p.underlying).toFile.exists)
-
-    // event
-    p.underlying.delete(true, monitor)
-    deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
-
-    // expected
-    assertFalse(indexer.index.location(p.underlying).toFile.exists)
-    observer.stop
+    testWithCustomIndex(name, index) { (_,project) =>
+      project.scalaProject.underlying.delete(true, monitor)
+      invokedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      assertTrue("Should've invoked deleteIndex but didn't", invoked)
+    }
   }
+
+  @Test
+  def theManagerMakesSureNewlyAddedFilesAreIndexed {
+    val name = "TheManagerMakesSureNewlyAddedFilesAreIndexed"
+    val latch = new CountDownLatch(1)
+    val filename = s"$name.scala"
+
+    @volatile var didInvoke = false
+
+    val indexer = new SourceIndexer(indexNamed(name)){
+      override def indexIFile(file: IFile) = {
+        latch.countDown
+        didInvoke = true
+        super.indexIFile(file)
+      }
+    }
+
+    testWithCustomIndexer(name, indexer) { (_,project) =>
+      val file = project.create(filename)("class ItSchedulesNewlyAddedFilesForIndexing")
+      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      assertTrue("Expected it to have invoke indexIFile, it didn't", didInvoke)
+    }
+  }
+
+  @Test
+  def theManagerMakesSureChangedFilesAreIndexed = {
+    val name = "TheManagerMakesSureChangedFilesAreIndexed"
+    val latch = new CountDownLatch(2)
+    val filename = s"$name.scala"
+
+    @volatile var invocations = 0
+
+    val indexer = new SourceIndexer(indexNamed(name)){
+      override def indexIFile(file: IFile) = {
+        latch.countDown
+        invocations = invocations + 1
+        super.indexIFile(file)
+      }
+    }
+
+    testWithCustomIndexer(name, indexer) { (_,project) =>
+      val file = project.create(filename)("")
+      file.addContent(s"class $name")
+      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      assertEquals("Expected it to have invoke indexIFile, it didn't", 2, invocations)
+    }
+  }
+
+  @Test
+  def theManagerMakesSureDeletedFilesAreRemoved = {
+    val name = "TheManagerMakesSureDeletedFilesAreRemoved"
+    val filename = s"$name.scala"
+    val project = Project(name)
+
+    val latch = new CountDownLatch(1)
+    @volatile var invocations = 0
+
+    val index = new Index {
+      override val base = new Path(mkPath("target",name))
+      override def removeOccurrencesFromFile(path: IPath, project: ScalaProject): Try[Unit] = {
+        logger.debug("Removing occurrences of file " + path)
+        if (path.lastSegment() == filename) {
+          invocations = invocations + 1
+          latch.countDown
+        }
+        super.removeOccurrencesFromFile(path, project)
+      }
+    }
+    val indexer = new SourceIndexer(index)
+    val manager = new IndexJobManager(indexer)
+
+    val addedLatch = new CountDownLatch(1)
+    FileChangeObserver(project.scalaProject)(onAdded = f => { addedLatch.countDown() })
+
+    val file = project.create(filename)("")
+    addedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+    manager.startup
+    manager.startTrackingChanges(project.scalaProject.underlying)
+    SDTTestUtils.waitUntil(10000)(false) // Waiting for JDT to finish with the file.
+    file.delete
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+    assertEquals("Expected it to have invoked removeOccurrencesFromFile, it didn't", 1, invocations)
+  }
+
 }
 
-object IndexJobManagerTest extends TestProjectSetup("IndexJobManagerTest", bundleName= "org.scala.tools.eclipse.search.tests")
-                             with TestUtil {
+object IndexJobManagerTest extends TestUtil with SourceCreator {
 
   val monitor = new NullProgressMonitor()
+
+  def indexNamed(name: String) = new Index {
+    override val base = new Path(mkPath("target",name))
+  }
+
+  def anonymousManager(indexName: String): IndexJobManager = {
+    val index = indexNamed(indexName)
+    val indexer = new SourceIndexer(index)
+    val indexManager = new IndexJobManager(indexer)
+    indexManager
+  }
+
+  def anonymousManager(p: Project): IndexJobManager = {
+    val manager = anonymousManager(p.name)
+    manager.startup()
+    manager
+  }
+
+  def testStandardSetup(name: String)(f: (IndexJobManager, Project) => Unit) = {
+    val manager = anonymousManager(name)
+    testWithCustomManager(name, manager)(f)
+  }
+
+  def testWithCustomIndex(name: String, index: Index)(f: (IndexJobManager, Project) => Unit): Unit = {
+    val indexer = new SourceIndexer(index)
+    testWithCustomIndexer(name, indexer)(f)
+  }
+
+  def testWithCustomIndexer(name: String, indexer: SourceIndexer)(f: (IndexJobManager, Project) => Unit): Unit = {
+    val manager = new IndexJobManager(indexer)
+    testWithCustomManager(name, manager)(f)
+  }
+
+  def testWithCustomManager(name: String, manager: IndexJobManager)(f: (IndexJobManager, Project) => Unit): Unit = {
+    manager.startup()
+    val project = Project(name)
+    f(manager, project)
+    manager.shutdown
+  }
 
 }

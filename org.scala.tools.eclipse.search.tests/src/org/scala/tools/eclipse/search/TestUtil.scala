@@ -28,33 +28,6 @@ trait TestUtil {
     xs.mkString(File.separator)
   }
 
-  def addSourceFile(project: ScalaProject)(name: String, contents: String) = {
-    val folder = project.underlying.getFolder("src")
-    if (!folder.exists())
-      folder.create(IResource.NONE, true, null)
-    val file = folder.getFile(name)
-    if (!file.exists()) {
-      val source = new ByteArrayInputStream(contents.getBytes())
-      file.create(source, IResource.FORCE, null)
-   }
-  }
-
-  def deleteSourceFile(project: ScalaProject)(name: String) = {
-    val folder = project.underlying.getFolder("src")
-    val file = folder.getFile(name)
-    if (folder.exists() && file.exists())
-      file.delete(true, false, null)
-  }
-
-  def addContent(project: ScalaProject)(name: String, contents: String) = {
-    val folder = project.underlying.getFolder("src")
-    val file = folder.getFile(name)
-    if (folder.exists() && file.exists()) {
-      val source = new ByteArrayInputStream(contents.getBytes())
-      file.appendContents(source, IResource.FORCE, null)
-    }
-  }
-
   object mocks {
 
     object args {

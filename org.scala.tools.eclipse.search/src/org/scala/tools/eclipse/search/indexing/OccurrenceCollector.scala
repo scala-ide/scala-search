@@ -26,6 +26,10 @@ object OccurrenceCollector extends HasLogger {
    */
   def findOccurrences(file: ScalaCompilationUnit): Try[Seq[Occurrence]] = {
 
+   
+    logger.debug(s"Asking for occurrence for a file")
+   
+    
     lazy val failedWithSF: Try[Seq[Occurrence]] = Failure(
         new InvalidPresentationCompilerException(
             s"Couldn't get source file for ${file.workspaceFile.getProjectRelativePath()}"))

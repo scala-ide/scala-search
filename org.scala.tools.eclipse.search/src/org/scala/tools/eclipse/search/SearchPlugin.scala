@@ -45,7 +45,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
 
     root.getProjects().map(Option.apply).flatten.foreach { proj =>
       ScalaPlugin.plugin.asScalaProject(proj).foreach { sp =>
-        indexManager.startIndexing(sp.underlying)
+        indexManager.startTrackingChanges(sp.underlying)
       }
     }
 

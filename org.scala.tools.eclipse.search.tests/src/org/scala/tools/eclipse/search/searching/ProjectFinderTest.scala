@@ -24,7 +24,7 @@ class ProjectFinderTest extends ProjectFinder {
    *    (A)        (E)
    *    / \
    *   /   \
-   * (B)––>(C)
+   * (B)-->(C)
    *        |
    *        |
    *       (D)

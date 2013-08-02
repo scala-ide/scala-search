@@ -10,6 +10,8 @@ import scala.Array.canBuildFrom
 import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
 import org.scala.tools.eclipse.search.indexing.Occurrence
 import org.scala.tools.eclipse.search.TypeEntity
+import java.io.ByteArrayInputStream
+import org.eclipse.core.resources.IResource
 
 trait SourceCreator {
 
@@ -110,6 +112,21 @@ trait SourceCreator {
 
     def occurrencesThatMatch(f: Occurrence => Boolean): Seq[Occurrence] = {
       allOccurrences.filter(f)
+    }
+
+    def addContent(txt: String) = {
+      val file = unit.workspaceFile
+      if (file.exists()) {
+        val source = new ByteArrayInputStream(txt.getBytes())
+        file.appendContents(source, IResource.FORCE, null)
+      }
+    }
+
+    def delete(): Unit = {
+      val file = unit.workspaceFile
+      if (file.exists()) {
+        file.delete(true, false, null)
+      }
     }
 
   }
