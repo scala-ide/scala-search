@@ -71,8 +71,12 @@ trait Index extends HasLogger {
    * Checks if the `file` exists and is a type we know how to index.
    */
   def isIndexable(file: IFile): Boolean = {
+    Option(file).map( f => f.exists && supportedFileExtension(f)).getOrElse(false)
+  }
+
+  def supportedFileExtension(file: IFile): Boolean = {
     // TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001616
-    Option(file).filter(_.exists).map( _.getFileExtension() == "scala").getOrElse(false)
+    Option(file).map( _.getFileExtension() == "scala").getOrElse(false)
   }
 
   def indexExists(project: IProject): Boolean = {
@@ -182,7 +186,9 @@ trait Index extends HasLogger {
       val (occurrences, failures) = acc
       t match {
         case (_, Success(xs)) => (occurrences ++ xs, failures)
-        case (p, Failure(_))  => (occurrences, BrokenIndex(p) +: failures)
+        case (p, Failure(f))  =>
+          logger.debug("Got a failure in the index " + f)
+          (occurrences, BrokenIndex(p) +: failures)
       }
     }
   }
@@ -198,6 +204,7 @@ trait Index extends HasLogger {
    *
    */
   def addOccurrences(occurrences: Seq[Occurrence], project: ScalaProject): Try[Unit] = {
+    logger.debug(s"Adding ${occurrences.size} occurrences to the index")
     doWithWriter(project) { writer =>
       val docs = occurrences.map( toDocument(project.underlying, _) )
       writer.addDocuments(docs.toIterable.asJava)

@@ -33,9 +33,8 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
     val index = new Index {
       override val base = getStateLocation().append(INDEX_DIR_NAME)
     }
-    val indexer = new SourceIndexer(index) 
-   
- 
+    val indexer = new SourceIndexer(index)
+
     indexManager = new IndexJobManager(indexer)
     indexManager.startup()
 
@@ -45,7 +44,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
 
     root.getProjects().map(Option.apply).flatten.foreach { proj =>
       ScalaPlugin.plugin.asScalaProject(proj).foreach { sp =>
-        indexManager.startIndexing(sp.underlying)
+        indexManager.startTrackingChanges(sp.underlying)
       }
     }
 

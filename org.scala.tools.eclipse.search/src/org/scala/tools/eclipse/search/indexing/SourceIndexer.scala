@@ -87,6 +87,7 @@ class SourceIndexer(val index: Index) extends HasLogger {
         cu => indexScalaFile(cu)
       }
     } else {
+      logger.debug(s"Didn't index file ${file.getName} as it isn't indexable according to Index.isIndexable")
       success
     }
   }
