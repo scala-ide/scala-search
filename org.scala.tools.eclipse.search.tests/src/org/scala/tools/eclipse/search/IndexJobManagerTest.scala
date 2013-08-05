@@ -203,6 +203,7 @@ class IndexJobManagerTest extends HasLogger {
     val name = "TheManagerMakesSureChangedFilesAreIndexed"
     val latch = new CountDownLatch(2)
     val filename = s"$name.scala"
+    val project = Project(name)
 
     @volatile var invocations = 0
 
@@ -213,14 +214,21 @@ class IndexJobManagerTest extends HasLogger {
         super.indexIFile(file)
       }
     }
+    val manager = new IndexJobManager(indexer)
 
-    testWithCustomIndexer(name, indexer) { (_,project) =>
-      val file = project.create(filename)("")
-      file.addContent(s"class $name")
-      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
-      logger.debug("NOW WE CHECK THE ASSERTION")
-      assertEquals("Expected it to have invoke indexIFile, it didn't", 2, invocations)
-    }
+    val addedLatch = new CountDownLatch(1)
+    FileChangeObserver(project.scalaProject)(onAdded = f => { addedLatch.countDown() })
+
+    val file = project.create(filename)("")
+    addedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+    manager.startup
+    manager.startTrackingChanges(project.scalaProject.underlying)
+
+    file.addContent(s"class $name")
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+    logger.debug("NOW WE CHECK THE ASSERTION")
+    assertEquals("Expected it to have invoke indexIFile, it didn't", 2, invocations)
+
   }
 
   @Test
