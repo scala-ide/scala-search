@@ -89,9 +89,9 @@ class ProjectIndexJob private (
     // For all other exceptions we delete the index re-index the entire project
     case otherwise =>
       logger.debug(s"The index was broken so we delete it and re-index the project ${project.underlying.getName}")
-      indexer.index.deleteIndex(project.underlying)
-      indexer.indexProject(project).recover(handlers)
       cancel()
+      indexer.index.deleteIndex(project.underlying)
+      schedule(1000)
   }
 }
 

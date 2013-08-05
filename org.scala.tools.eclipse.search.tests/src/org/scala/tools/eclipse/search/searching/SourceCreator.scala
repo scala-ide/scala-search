@@ -211,7 +211,6 @@ trait SourceCreator {
    * Create a Job that locks the given project and runs `f` while blocking the thread.
    */
   private def lockProjectAndRun(scalaProject: ScalaProject)(f: IProgressMonitor => Unit) = {
-    @volatile var isDone = false
 
     val job = new Job(s"Deleting project ${scalaProject.underlying.getName}") {
       override def run(monitor: IProgressMonitor): IStatus = {
@@ -220,16 +219,9 @@ trait SourceCreator {
       }
     }
 
-    job.addJobChangeListener(new JobChangeAdapter {
-      override def done(event: IJobChangeEvent): Unit = {
-        isDone = true
-      }
-    })
-
     job.setRule(ResourcesPlugin.getWorkspace().getRuleFactory().modifyRule(scalaProject.underlying))
     job.schedule()
-
-    SDTTestUtils.waitUntil(10)(isDone)
+    job.join()
   }
 
 }

@@ -3,7 +3,6 @@ package org.scala.tools.eclipse.search
 import java.util.concurrent.CountDownLatch
 import scala.tools.eclipse.ScalaProject
 import scala.tools.eclipse.javaelements.ScalaSourceFile
-import scala.tools.eclipse.logging.HasLogger
 import org.eclipse.core.resources.IProject
 import org.eclipse.core.runtime.IPath
 import org.eclipse.core.runtime.NullProgressMonitor
@@ -22,7 +21,7 @@ import scala.util.Try
 import org.eclipse.core.resources.IFile
 import scala.tools.eclipse.testsetup.SDTTestUtils
 
-class IndexJobManagerTest extends HasLogger {
+class IndexJobManagerTest {
 
   import IndexJobManagerTest._
 
@@ -234,7 +233,6 @@ class IndexJobManagerTest extends HasLogger {
     val index = new Index {
       override val base = new Path(mkPath("target",name))
       override def removeOccurrencesFromFile(path: IPath, project: ScalaProject): Try[Unit] = {
-        logger.debug("Removing occurrences of file " + path)
         if (path.lastSegment() == filename) {
           invocations = invocations + 1
           latch.countDown

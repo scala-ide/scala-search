@@ -24,7 +24,7 @@ import org.eclipse.core.runtime.jobs.IJobChangeEvent
  */
 class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
 
-  protected val lock = new Object
+  private val lock = new Object
 
   /** Contains the changed files that haven't yet been indexed.
    *
@@ -159,7 +159,7 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
       runningJobs.put(project, job)
       job.schedule
     }) getOrElse {
-       logger.debug(s"Wasn't able to start indexing job for ${project.getName}" +
+       logger.debug(s"Wasn't able to start indexing job for ${project.getName} " +
                      "as it wasn't a ScalaProject")
     }
   }
