@@ -20,8 +20,9 @@ import IndexJobManagerTest.mkPath
 import scala.util.Try
 import org.eclipse.core.resources.IFile
 import scala.tools.eclipse.testsetup.SDTTestUtils
+import scala.tools.eclipse.logging.HasLogger
 
-class IndexJobManagerTest {
+class IndexJobManagerTest extends HasLogger {
 
   import IndexJobManagerTest._
 
@@ -217,6 +218,7 @@ class IndexJobManagerTest {
       val file = project.create(filename)("")
       file.addContent(s"class $name")
       latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      logger.debug("NOW WE CHECK THE ASSERTION")
       assertEquals("Expected it to have invoke indexIFile, it didn't", 2, invocations)
     }
   }
