@@ -79,7 +79,9 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
     def findDeclarationOfType(name: String, comparator: SymbolComparator): Unit = {
       val (occurrences, errors) = index.findDeclarations(name, relevantProjects(entity.location))
       errors foreach errorHandler
-      for ( occurrence <- occurrences.iterator if !monitor.isCanceled) {
+      val it = occurrences.iterator
+      while (it.hasNext && !monitor.isCanceled) {
+        val occurrence = it.next
         val loc = Location(occurrence.file, occurrence.offset)
         comparator.isSameAs(loc) match {
           case Same         => getTypeEntity(occurrence.toHit) map Certain.apply foreach handler
