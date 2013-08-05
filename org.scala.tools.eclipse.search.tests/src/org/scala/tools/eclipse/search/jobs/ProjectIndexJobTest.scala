@@ -105,9 +105,30 @@ class ProjectIndexJobTest {
     val config = mockedSuccessfullIndexerConfigNoReindexing(project.scalaProject)
 
     testWithIndexer(config, project.scalaProject, latch, changeset = changes) { () =>
-      verify(config, atLeast(1)).indexIFile(added.unit.workspaceFile)
-      verify(config, atLeast(1)).indexIFile(changed.unit.workspaceFile)
-      verify(config.index, atLeast(1)).removeOccurrencesFromFile(deleted.unit.workspaceFile.getProjectRelativePath, project.scalaProject)
+      verify(config, times(1)).indexIFile(added.unit.workspaceFile)
+      verify(config, times(1)).indexIFile(changed.unit.workspaceFile)
+      verify(config.index, times(1)).removeOccurrencesFromFile(deleted.unit.workspaceFile.getProjectRelativePath, project.scalaProject)
+    }
+  }
+
+  @Test def itIndexesTheChangesetContainAddedAndChanged() {
+    // When the ProjectIndexJob is given a changeset we expect it to
+    // handle the changes properly.
+    val latch = new CountDownLatch(1)
+    val name = "BothAddedAndChanged"
+    val project = Project(name)
+
+    val file = project.create("BothAddedAndChanged.scala")("class BothAddedAndChanged")
+
+    val changes = List(
+        (file.unit.workspaceFile, Changed),
+        (file.unit.workspaceFile, Added)
+    )
+
+    val config = mockedSuccessfullIndexerConfigNoReindexing(project.scalaProject)
+
+    testWithIndexer(config, project.scalaProject, latch, changeset = changes) { () =>
+      verify(config, times(2)).indexIFile(file.unit.workspaceFile)
     }
   }
 
@@ -129,6 +150,9 @@ object ProjectIndexJobTest
                       changeset: Seq[(IFile, FileEvent)] = Nil)
                      (f: () => Unit): Unit = {
     val job = ProjectIndexJob(indexer, project, changeset)
+    // Can't jsut use join for this as some of the tests
+    // require that the job finishes more than one, hence
+    // we use the JobChangeAdapter for this
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
