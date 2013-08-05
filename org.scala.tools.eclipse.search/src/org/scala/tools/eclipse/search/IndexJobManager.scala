@@ -144,11 +144,20 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
 
   private def startIndexing(project: IProject, changeset: Seq[(IFile, FileEvent)]): Unit = lock.synchronized {
     ensureActive()
-    (for {
-      p <- Option(project)
-      plugin <- Option(ScalaPlugin.plugin)
-      sp <- ScalaPlugin.plugin.asScalaProject(project)
-    } yield {
+    lazy val partialErrorMsg =
+      s"Wasn't able to start an indexing job for ${project.getName} "
+
+    for {
+      p <- Option(project) onEmpty {
+        logger.debug(partialErrorMsg + " as thr project was null")
+      }
+      plugin <- Option(ScalaPlugin.plugin) onEmpty {
+        logger.debug(partialErrorMsg + " as ScalaPlugin.plugin was null")
+      }
+      sp <- ScalaPlugin.plugin.asScalaProject(project) onEmpty {
+        logger.debug(partialErrorMsg + " as it wasn't a ScalaProject")
+      }
+    } {
       val job = ProjectIndexJob(indexer, sp, changeset)
       job.addJobChangeListener(new JobChangeAdapter {
         override def done(event: IJobChangeEvent): Unit = lock.synchronized {
@@ -158,19 +167,25 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
       })
       runningJobs.put(project, job)
       job.schedule
-    }) getOrElse {
-       logger.debug(s"Wasn't able to start indexing job for ${project.getName} " +
-                     "as it wasn't a ScalaProject")
     }
   }
 
   private def startObservingChanges(project: IProject): Unit = {
     ensureActive()
-    (for {
-      p <- Option(project)
-      plugin <- Option(ScalaPlugin.plugin)
-      sp <- ScalaPlugin.plugin.asScalaProject(project)
-    } yield {
+    lazy val partialErrorMsg =
+      s"Wasn't able to start observing chnages for ${project.getName} "
+
+    for {
+      p <- Option(project) onEmpty {
+        logger.debug(partialErrorMsg + " as thr project was null")
+      }
+      plugin <- Option(ScalaPlugin.plugin) onEmpty {
+        logger.debug(partialErrorMsg + " as ScalaPlugin.plugin was null")
+      }
+      sp <- ScalaPlugin.plugin.asScalaProject(project) onEmpty {
+        logger.debug(partialErrorMsg + " as it wasn't a ScalaProject")
+      }
+    } {
       val observer = FileChangeObserver(sp)(
         onChanged = f => lock.synchronized {
           if (indexer.index.isIndexable(f)) changedResources put (project, f, Changed)
@@ -183,9 +198,6 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
         }
       )
       fileChangedObservers.put(project, observer)
-    }) getOrElse {
-       logger.debug(s"Wasn't able to start indexing observing chnages for ${project.getName} " +
-                     "as it wasn't a ScalaProject")
     }
   }
 
