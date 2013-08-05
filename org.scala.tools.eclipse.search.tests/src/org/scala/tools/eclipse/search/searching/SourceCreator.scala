@@ -12,6 +12,17 @@ import org.scala.tools.eclipse.search.indexing.Occurrence
 import org.scala.tools.eclipse.search.TypeEntity
 import java.io.ByteArrayInputStream
 import org.eclipse.core.resources.IResource
+import scala.tools.eclipse.testsetup.SDTTestUtils
+import scala.tools.eclipse.util.EclipseUtils
+import scala.tools.eclipse.ScalaPlugin
+import org.eclipse.core.runtime.jobs.Job
+import org.eclipse.core.runtime.IProgressMonitor
+import org.eclipse.core.runtime.IStatus
+import org.eclipse.core.runtime.Status
+import org.scala.tools.eclipse.search.JobChangeAdapter
+import org.eclipse.core.runtime.jobs.IJobChangeEvent
+import org.eclipse.core.resources.ResourcesPlugin
+import scala.tools.eclipse.ScalaProject
 
 trait SourceCreator {
 
@@ -123,9 +134,11 @@ trait SourceCreator {
     }
 
     def delete(): Unit = {
-      val file = unit.workspaceFile
-      if (file.exists()) {
-        file.delete(true, false, null)
+      lockProjectAndRun(unit.scalaProject) { monitor =>
+        val file = unit.workspaceFile
+        if (file.exists()) {
+          file.delete(true, false, monitor)
+        }
       }
     }
 
@@ -185,13 +198,38 @@ trait SourceCreator {
       ScalaDocument(unit, cursors)
     }
 
-    def delete = {
-      scalaProject.underlying.delete(true, new NullProgressMonitor)
+    def delete = lockProjectAndRun(scalaProject) { monitor =>
+      scalaProject.underlying.delete(true, monitor)
     }
   }
 
   object Project {
     def apply(name: String) = new Project(name)
+  }
+
+  /**
+   * Create a Job that locks the given project and runs `f` while blocking the thread.
+   */
+  private def lockProjectAndRun(scalaProject: ScalaProject)(f: IProgressMonitor => Unit) = {
+    @volatile var isDone = false
+
+    val job = new Job(s"Deleting project ${scalaProject.underlying.getName}") {
+      override def run(monitor: IProgressMonitor): IStatus = {
+        f(monitor)
+        Status.OK_STATUS
+      }
+    }
+
+    job.addJobChangeListener(new JobChangeAdapter {
+      override def done(event: IJobChangeEvent): Unit = {
+        isDone = true
+      }
+    })
+
+    job.setRule(ResourcesPlugin.getWorkspace().getRuleFactory().modifyRule(scalaProject.underlying))
+    job.schedule()
+
+    SDTTestUtils.waitUntil(10)(isDone)
   }
 
 }
