@@ -64,6 +64,14 @@ class ProjectIndexJob private (
         }
         monitor.worked(1)
       }
+      if (it.hasNext) {
+        val rest = for (i <- it) yield i
+        if (monitor.isCanceled()) {
+          logger.debug(s"Didn't index ${rest.toList} as the job was canceled")
+        } else {
+          logger.debug(s"Didn't index ${rest.toList} as the project was closed")
+        }
+      }
     }
 
     monitor.done()
