@@ -161,7 +161,7 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
       val job = ProjectIndexJob(indexer, sp, changeset)
       job.addJobChangeListener(new JobChangeAdapter {
         override def done(event: IJobChangeEvent): Unit = lock.synchronized {
-          logger.debug("A job finished for " + project.getName)
+          logger.debug(s"A job finished for ${project.getName} with changeset $changeset")
           runningJobs.remove(project)
         }
       })
