@@ -207,10 +207,15 @@ class IndexJobManagerTest extends HasLogger {
     val latch = new CountDownLatch(2)
     @volatile var invocations = 0
 
-    val indexer = new SourceIndexer(indexNamed(name)){
+    val index = new Index {
+      override val base = new Path(mkPath("target",name))
+      override def indexExists(project: IProject): Boolean = true
+    }
+    val indexer = new SourceIndexer(index){
       override def indexIFile(file: IFile) = {
-        latch.countDown
+        logger.debug("Test is invoked indexIFile for " + file.getName)
         invocations = invocations + 1
+        latch.countDown
         Success()
       }
     }

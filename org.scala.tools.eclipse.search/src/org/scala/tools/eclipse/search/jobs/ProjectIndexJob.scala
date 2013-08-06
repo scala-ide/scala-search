@@ -51,26 +51,34 @@ class ProjectIndexJob private (
       Option(project) map (p => !indexer.index.indexExists(p.underlying))
 
     if (shouldIndexEverything.getOrElse(false)) {
+      logger.debug("No prior index exists so indexing the entire project: " + project.underlying.getName)
       indexer.indexProject(project).recover(handlers)
-    } else {
-      val it = changeset.iterator
-      while( it.hasNext && !monitor.isCanceled() && projectIsOpenAndExists) {
-        val (file, changed) = it.next
-        monitor.subTask(file.getName())
-        changed match {
-          case Changed => indexer.indexIFile(file).recover(handlers)
-          case Added   => indexer.indexIFile(file).recover(handlers)
-          case Removed => indexer.index.removeOccurrencesFromFile(file.getProjectRelativePath(), project).recover(handlers)
-        }
-        monitor.worked(1)
+    }
+
+    logger.debug("Iterating over change-set of " + changeset)
+    val it = changeset.iterator
+    while( it.hasNext && !monitor.isCanceled() && projectIsOpenAndExists) {
+      val (file, changed) = it.next
+      logger.debug("Handling " + (file,changed))
+      monitor.subTask(file.getName())
+      changed match {
+        case Changed =>
+          logger.debug(s"${file.getName} changed so we re-index it")
+          indexer.indexIFile(file).recover(handlers)
+        case Added   =>
+          logger.debug(s"${file.getName} was added so we re-index it")
+          indexer.indexIFile(file).recover(handlers)
+        case Removed =>
+          indexer.index.removeOccurrencesFromFile(file.getProjectRelativePath(), project).recover(handlers)
       }
-      if (it.hasNext) {
-        val rest = for (i <- it) yield i
-        if (monitor.isCanceled()) {
-          logger.debug(s"Didn't index ${rest.toList} as the job was canceled")
-        } else {
-          logger.debug(s"Didn't index ${rest.toList} as the project was closed")
-        }
+      monitor.worked(1)
+    }
+    if (it.hasNext) {
+      val rest = for (i <- it) yield i
+      if (monitor.isCanceled()) {
+        logger.debug(s"Didn't index ${rest.toList} as the job was canceled")
+      } else {
+        logger.debug(s"Didn't index ${rest.toList} as the project was closed")
       }
     }
 
