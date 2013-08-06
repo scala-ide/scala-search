@@ -244,6 +244,35 @@ class FinderTest {
   """}(Nil) // I.e. make sure that Foo doesn't count as a subtype of Foo.
 
   /*
+   * -----------------
+   * findSupertypes
+   * -----------------
+   */
+
+  @Test
+  def findSuperclassesWorksWithClasses = superclassesNamed("WithsWithClasses"){"""
+    class Foo
+    class |Bar extends Foo
+  """}(List("Foo"))
+
+  @Test
+  def findSuperclassesWorksWithTraits = superclassesNamed("WorksWithTraits"){"""
+    trait Foo
+    trait |Bar extends Foo
+  """}(List("Foo"))
+
+  @Test
+  def findSuperclassesWorksWithSelfTypes = superclassesNamed("WorksWithSelfTypes"){"""
+    trait Foo
+    trait |Bar { this: Foo => }
+  """}(List("Foo"))
+
+  @Test
+  def findSuperclassesIgnoresSupertypesNotDefinedInSource = superclassesNamed("IgnoresSuperTypesNotInSource"){"""
+    trait |Bar { }
+  """}(Nil)
+
+  /*
    * -------------------
    * Error Handling
    * -------------------
@@ -439,9 +468,7 @@ object FinderTest extends TestUtil
     val location = Location(source.unit, source.markers.head)
     finder.entityAt(location) foreach {
       case entity: TypeEntity => finder.findSubtypes(entity, new NullProgressMonitor) { hit =>
-        if (source.markers.contains(hit.value.location.offset)) {
-          hitNames = hit.value.name +: hitNames
-        }
+        hitNames = hit.value.name +: hitNames
       }
       case x => fail(s"Expected a subclass of TypeEntity, but got $x")
     }
@@ -449,6 +476,31 @@ object FinderTest extends TestUtil
     project.delete
 
     assertEquals(names.toSet, hitNames.toSet)
+  }
+
+  def superclassesNamed(name: String)(text: String)(names: List[String]): Unit = {
+    val project = Project(s"FindAllSuperclassesNamedTest-$name")
+
+    val indexer = anonymousIndexer
+    val finder = anonymousFinder(indexer.index)
+
+    val source = project.create(s"$name.scala")(text)
+
+    indexer.indexProject(project.scalaProject)
+
+    var hitNames = List[String]()
+
+    val location = Location(source.unit, source.markers.head)
+    finder.entityAt(location) foreach {
+      case entity: TypeEntity => finder.findSupertypes(entity, new NullProgressMonitor) { hit =>
+        hitNames = hit.value.name +: hitNames
+      }
+      case x => fail(s"Expected a subclass of TypeEntity, but got $x")
+    }
+
+    project.delete
+
+    assertEquals(names, hitNames)
   }
 
   def find(finder: Finder, loc: Location)(f: Confidence[Hit] => Unit): Unit = {

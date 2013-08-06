@@ -9,6 +9,20 @@ import org.eclipse.jdt.core.IClasspathEntry
 import scala.Array.canBuildFrom
 import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
 import org.scala.tools.eclipse.search.indexing.Occurrence
+import org.scala.tools.eclipse.search.TypeEntity
+import java.io.ByteArrayInputStream
+import org.eclipse.core.resources.IResource
+import scala.tools.eclipse.testsetup.SDTTestUtils
+import scala.tools.eclipse.util.EclipseUtils
+import scala.tools.eclipse.ScalaPlugin
+import org.eclipse.core.runtime.jobs.Job
+import org.eclipse.core.runtime.IProgressMonitor
+import org.eclipse.core.runtime.IStatus
+import org.eclipse.core.runtime.Status
+import org.scala.tools.eclipse.search.JobChangeAdapter
+import org.eclipse.core.runtime.jobs.IJobChangeEvent
+import org.eclipse.core.resources.ResourcesPlugin
+import scala.tools.eclipse.ScalaProject
 
 trait SourceCreator {
 
@@ -32,6 +46,21 @@ trait SourceCreator {
         val foundnames = spc.possibleNamesOfEntityAt(Location(unit, markers.head))
         assertEquals(names, foundnames.getOrElse(Nil))
       } (fail("Couldn't get Scala source file"))
+    }
+
+    def expectedSupertypes(expectedNames: String*): Unit = {
+      unit.withSourceFile { (sf, pc) =>
+        val spc = new SearchPresentationCompiler(pc)
+        val loc = Location(unit, markers.head)
+        val enitty = spc.entityAt(loc) flatMap {
+          case x: TypeEntity => Some(x)
+          case _ => None
+        }
+        val namesAndComparators = spc.superTypesOf(enitty.get).get
+        val names = namesAndComparators.map( _._1 )
+
+        assertEquals(expectedNames, names)
+      }(fail("Couldn't get Scala source file"))
     }
 
     def expectedDeclarationNamed(name: String): Unit = {
@@ -96,6 +125,23 @@ trait SourceCreator {
       allOccurrences.filter(f)
     }
 
+    def addContent(txt: String) = {
+      val file = unit.workspaceFile
+      if (file.exists()) {
+        val source = new ByteArrayInputStream(txt.getBytes())
+        file.appendContents(source, IResource.FORCE, null)
+      }
+    }
+
+    def delete(): Unit = {
+      lockProjectAndRun(unit.scalaProject) { monitor =>
+        val file = unit.workspaceFile
+        if (file.exists()) {
+          file.delete(true, false, monitor)
+        }
+      }
+    }
+
   }
 
   class Project private (val name: String) {
@@ -152,13 +198,30 @@ trait SourceCreator {
       ScalaDocument(unit, cursors)
     }
 
-    def delete = {
-      scalaProject.underlying.delete(true, new NullProgressMonitor)
+    def delete = lockProjectAndRun(scalaProject) { monitor =>
+      scalaProject.underlying.delete(true, monitor)
     }
   }
 
   object Project {
     def apply(name: String) = new Project(name)
+  }
+
+  /**
+   * Create a Job that locks the given project and runs `f` while blocking the thread.
+   */
+  private def lockProjectAndRun(scalaProject: ScalaProject)(f: IProgressMonitor => Unit) = {
+
+    val job = new Job(s"Deleting project ${scalaProject.underlying.getName}") {
+      override def run(monitor: IProgressMonitor): IStatus = {
+        f(monitor)
+        Status.OK_STATUS
+      }
+    }
+
+    job.setRule(ResourcesPlugin.getWorkspace().getRuleFactory().modifyRule(scalaProject.underlying))
+    job.schedule()
+    job.join()
   }
 
 }

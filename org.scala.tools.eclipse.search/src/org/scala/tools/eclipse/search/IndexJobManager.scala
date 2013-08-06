@@ -3,23 +3,50 @@ package org.scala.tools.eclipse.search
 import scala.collection.mutable
 import scala.tools.eclipse.logging.HasLogger
 import scala.tools.eclipse.ScalaPlugin
-
 import org.eclipse.core.resources.IProject
 import org.scala.tools.eclipse.search.indexing.Index
-
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import org.scala.tools.eclipse.search.jobs.ProjectIndexJob
+import org.eclipse.core.resources.IFile
+import java.util.concurrent.LinkedBlockingQueue
+import org.eclipse.core.runtime.jobs.JobChangeAdapter
+import org.eclipse.core.runtime.jobs.IJobChangeEvent
 
 /**
  * Responsible for keeping track of the various indexing jobs. It uses
  * ProjectChangeObserver to keep track of Resource Events related to
  * projects.
- * 
+ *
+ * In fixed intervals it starts a `ProjectIndexJob` for the relevant
+ * project if any files have been changed.
+ *
  * @note This trait is thread-safe.
  */
 class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
 
   private val lock = new Object
+
+  /** Contains the changed files that haven't yet been indexed.
+   *
+   *  @note Potentially changed by several threads. This instance,
+   *  all of the `FileChangeObserver`s and the Scheduler thread.
+   */
+  protected val changedResources =
+    new LinkedBlockingQueue[(IProject, IFile, FileEvent)]()
+
+  /** Keeps track of currently running indexing job for each
+   *  Scala project.
+   *
+   *  @note Guarded by `lock`.
+   */
+  private val runningJobs =
+    new mutable.HashMap[IProject, ProjectIndexJob]
+
+  /** Keeps track of of the FileChangeObservers
+   *  @note Guarded by `lock`.
+   */
+  private val fileChangedObservers =
+    new mutable.HashMap[IProject, Observing]
 
   /** Has the manager been started?
    *  @note Guarded by `lock`.
@@ -31,77 +58,146 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
    */
   private var observer: Observing = _
 
-  /** Keeps track of indexing job for each Scala project.
-   * @note Guarded by `lock`.
+  /** Responsible for scheduling ProjectIndexJob's in fixed intervals
+   *  if needed
+   *
+   *  @note Guarded by `lock`.
    */
-  private val indexingJobs: mutable.Map[IProject, ProjectIndexJob] = 
-    new mutable.HashMap[IProject, ProjectIndexJob]
+  private var scheduler: Thread = _
 
   override def startup() = lock.synchronized {
-    if(active) 
+    if(active)
       throw new ScalaSearchException("Index manager was already started.")
 
-    // Important to do this '''before''' registering the listener. 
+    // Important to do this '''before''' registering the listener.
     active = true
 
-    /* Mind that the listener is initialized here (and not in the constructor) to prevent the 
-     * `this` reference to escape before it is properly constructed. Failing to do so can lead 
+    /* Mind that the listener is initialized here (and not in the constructor) to prevent the
+     * `this` reference to escape before it is properly constructed. Failing to do so can lead
      * to concurrency hazards.
      */
     observer = ProjectChangeObserver(
-      onOpen = startIndexing(_),
-      onNewScalaProject = startIndexing(_),
-      onClose = stopIndexing(_),
+      onOpen = startTrackingChanges(_),
+      onNewScalaProject = startTrackingChanges(_),
+      onClose = stopTrackingChanges(_),
       onDelete = project => {
-        stopIndexing(project)
+        stopTrackingChanges(project)
         if(indexer.index.indexExists(project))
           indexer.index.deleteIndex(project)
       })
+
+    scheduler = new Thread(new Scheduler())
+    scheduler.start()
   }
 
   override def shutdown() = lock.synchronized {
     ensureActive()
     observer.stop()
     observer = null
-    indexingJobs.keys.foreach(stopIndexing)
+    fileChangedObservers.keys.foreach(stopTrackingChanges)
+    fileChangedObservers.clear
+    changedResources.clear
+    scheduler.stop()
+    scheduler = null
     active = false
   }
 
-  def startIndexing(project: IProject): Unit = lock.synchronized {
+  /**
+   * Starts tracking file changes and indexes any files that haven't
+   * been indexed yet.
+   */
+  def startTrackingChanges(project: IProject): Unit = lock.synchronized {
     ensureActive()
-    if (!indexingJobs.contains(project)) {
-      val jobOpt = createIndexJob(project)
-      jobOpt.foreach { job =>
-        job.schedule()
-        indexingJobs.put(project, job)
-      }
+    if (!fileChangedObservers.contains(project)) {
+      startObservingChanges(project)
+      startIndexing(project, Nil)
     }
   }
 
-  def stopIndexing(project: IProject): Unit = lock.synchronized {
+  /**
+   * Stop tracking file changes for the given project.
+   */
+  def stopTrackingChanges(project: IProject): Unit = lock.synchronized {
     ensureActive()
-    indexingJobs.get(project).foreach { job =>
+    fileChangedObservers.get(project) foreach { observer =>
+      observer.stop
+      fileChangedObservers.remove(project)
+    }
+    runningJobs.get(project) foreach { job =>
       job.cancel()
-      indexingJobs.remove(project)
+      runningJobs.remove(project)
     }
   }
 
-  def isIndexing(project: IProject): Boolean = lock.synchronized {
+  def isTrackingChanges(project: IProject): Boolean = lock.synchronized {
     ensureActive()
-    indexingJobs.contains(project)
+    fileChangedObservers.contains(project)
   }
 
-  private def createIndexJob(project: IProject): Option[ProjectIndexJob] = lock.synchronized {
+  def isCurrentlyIndexing(project: IProject): Boolean = lock.synchronized {
     ensureActive()
+    // Since the ProjectIndexJob is removed from `runningJobs` when
+    // it's finished, we know that if the map contains a job for the
+    // project then it's indexing files in that project at the moment.
+    runningJobs.contains(project)
+  }
 
-    val onStopped = (job: ProjectIndexJob) => {
-      // If the job, for some reason, stops we want to remove it.
-      indexingJobs.remove(project)
-      ()
+  private def startIndexing(project: IProject, changeset: Seq[(IFile, FileEvent)]): Unit = lock.synchronized {
+    ensureActive()
+    lazy val partialErrorMsg =
+      s"Wasn't able to start an indexing job for ${project.getName} "
+
+    for {
+      p <- Option(project) onEmpty {
+        logger.debug(partialErrorMsg + " as thr project was null")
+      }
+      plugin <- Option(ScalaPlugin.plugin) onEmpty {
+        logger.debug(partialErrorMsg + " as ScalaPlugin.plugin was null")
+      }
+      sp <- ScalaPlugin.plugin.asScalaProject(project) onEmpty {
+        logger.debug(partialErrorMsg + " as it wasn't a ScalaProject")
+      }
+    } {
+      val job = ProjectIndexJob(indexer, sp, changeset)
+      job.addJobChangeListener(new JobChangeAdapter {
+        override def done(event: IJobChangeEvent): Unit = lock.synchronized {
+          logger.debug(s"A job finished for ${project.getName} with changeset $changeset")
+          runningJobs.remove(project)
+        }
+      })
+      runningJobs.put(project, job)
+      job.schedule
     }
+  }
 
-    ScalaPlugin.plugin.asScalaProject(project).map { sp =>
-      ProjectIndexJob(indexer, sp, 5000, onStopped)
+  private def startObservingChanges(project: IProject): Unit = {
+    ensureActive()
+    lazy val partialErrorMsg =
+      s"Wasn't able to start observing chnages for ${project.getName} "
+
+    for {
+      p <- Option(project) onEmpty {
+        logger.debug(partialErrorMsg + " as thr project was null")
+      }
+      plugin <- Option(ScalaPlugin.plugin) onEmpty {
+        logger.debug(partialErrorMsg + " as ScalaPlugin.plugin was null")
+      }
+      sp <- ScalaPlugin.plugin.asScalaProject(project) onEmpty {
+        logger.debug(partialErrorMsg + " as it wasn't a ScalaProject")
+      }
+    } {
+      val observer = FileChangeObserver(sp)(
+        onChanged = f => lock.synchronized {
+          if (indexer.index.isIndexable(f)) changedResources put (project, f, Changed)
+        },
+        onAdded   = f => lock.synchronized {
+          if (indexer.index.isIndexable(f)) changedResources put (project, f, Added)
+        },
+        onRemoved = f => lock.synchronized {
+          if (indexer.index.supportedFileExtension(f)) changedResources put (project, f, Removed)
+        }
+      )
+      fileChangedObservers.put(project, observer)
     }
   }
 
@@ -109,4 +205,47 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
     if(!active)
       throw new ScalaSearchException("Index manager is not started.")
   }
+
+
+  private def getChangesetByProject: Map[IProject, Seq[(IProject, IFile, FileEvent)]] = {
+    var changes = List[(IProject, IFile, FileEvent)]()
+    while (!changedResources.isEmpty) {
+      changes = changedResources.poll :: changes
+    }
+
+    changes.groupBy {
+      case (project, file, event) => project
+    }
+  }
+
+  /**
+   * Small Runnable that takes care of scheduling new ProjectIndexJob's
+   */
+  private class Scheduler extends Runnable {
+
+    override def run: Unit = loop
+
+    private def loop: Unit = {
+      Thread.sleep(1000)
+
+      lock.synchronized {
+        getChangesetByProject foreach { case (project, xs) =>
+          if (isCurrentlyIndexing(project)) {
+            logger.debug(s"A job for ${project.getName} is already running. Waiting till it's finished to add change-set ${xs}")
+            // If there is already an indexing job running for this
+            // project push the changeset for this project back in the
+            // queue and they'll be indexed next time around.
+            xs foreach ( x => changedResources.put(x) )
+          } else {
+            val changeSet = xs map ( triple => (triple._2, triple._3) )
+            logger.debug("Start indexing change-set " + changeSet)
+            startIndexing(project, changeSet)
+          }
+        }
+      }
+
+      loop
+    }
+  }
+
 }

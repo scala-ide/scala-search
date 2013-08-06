@@ -37,6 +37,7 @@ import scala.tools.eclipse.ScalaSourceFileEditor
  */
 class TypeHierarchyView extends ViewPart with HasLogger {
 
+  private val finder = SearchPlugin.finder
   private val reporter: ErrorReporter = new DialogErrorReporter
 
   var superclasses: TreeViewer = _
@@ -46,6 +47,7 @@ class TypeHierarchyView extends ViewPart with HasLogger {
 
   def setRoot(entity: TypeEntity): Unit = {
     subclasses.setInput(entity)
+    superclasses.setInput(entity)
     superLabel.setText(s"Super-classes of '${entity.name}'")
     subLabel.setText(s"Sub-classes of '${entity.name}'")
   }
@@ -74,9 +76,9 @@ class TypeHierarchyView extends ViewPart with HasLogger {
     configure(superclasses)
     setupEventHandler(superclasses)
 
-    superclasses.setContentProvider(new TypeHierarchyTreeContentProvider(superclasses))
+    superclasses.setContentProvider(
+        new TypeHierarchyTreeContentProvider(superclasses, (e, m, h) => finder.findSupertypes(e, m)(h)))
     superclasses.setLabelProvider(new TypeHierarchyTreeLabelProvider)
-    superclasses.getControl().setEnabled(false)
 
     // Configure the Sub-types view
     subLabel = new Label(parent, SWT.NONE)
@@ -87,7 +89,8 @@ class TypeHierarchyView extends ViewPart with HasLogger {
     configure(subclasses)
     setupEventHandler(subclasses)
 
-    subclasses.setContentProvider(new TypeHierarchyTreeContentProvider(subclasses))
+    subclasses.setContentProvider(
+        new TypeHierarchyTreeContentProvider(subclasses, (e, m, h) => finder.findSubtypes(e, m)(h)))
     subclasses.setLabelProvider(new TypeHierarchyTreeLabelProvider)
 
     // Configure the Inspector view

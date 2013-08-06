@@ -70,8 +70,12 @@ trait Index extends HasLogger {
    * Checks if the `file` exists and is a type we know how to index.
    */
   def isIndexable(file: IFile): Boolean = {
+    Option(file).map( f => f.exists && supportedFileExtension(f)).getOrElse(false)
+  }
+
+  def supportedFileExtension(file: IFile): Boolean = {
     // TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001616
-    Option(file).filter(_.exists).map( _.getFileExtension() == "scala").getOrElse(false)
+    Option(file).map( _.getFileExtension() == "scala").getOrElse(false)
   }
 
   def indexExists(project: IProject): Boolean = {
@@ -128,6 +132,19 @@ trait Index extends HasLogger {
   }
 
   /**
+    * Search the projects for all occurrence of the `word` that are found in declarations.
+    */
+   def findDeclarations(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+     val query = new BooleanQuery()
+     query.add(new TermQuery(Terms.isDeclaration), BooleanClause.Occur.MUST)
+     query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
+
+     val resuts = queryProjects(query, projects)
+
+     groupSearchResults(resuts.seq)
+   }
+
+  /**
    * Search the relevant project indices for all occurrences of the given words.
    *
    * This will return a sequence of all the occurrences it found in the index and a
@@ -168,7 +185,9 @@ trait Index extends HasLogger {
       val (occurrences, failures) = acc
       t match {
         case (_, Success(xs)) => (occurrences ++ xs, failures)
-        case (p, Failure(_))  => (occurrences, BrokenIndex(p) +: failures)
+        case (p, Failure(f))  =>
+          logger.debug("Got a failure in the index " + f)
+          (occurrences, BrokenIndex(p) +: failures)
       }
     }
   }
@@ -184,6 +203,7 @@ trait Index extends HasLogger {
    *
    */
   def addOccurrences(occurrences: Seq[Occurrence], project: ScalaProject): Try[Unit] = {
+    logger.debug(s"Adding ${occurrences.size} occurrences to the index")
     doWithWriter(project) { writer =>
       val docs = occurrences.map( toDocument(project.underlying, _) )
       writer.addDocuments(docs.toIterable.asJava)
@@ -272,6 +292,10 @@ trait Index extends HasLogger {
 
     def isInSuperPosition = {
       new Term(LuceneFields.IS_IN_SUPER_POSITION, "true")
+    }
+
+    def isDeclaration = {
+      new Term(LuceneFields.OCCURRENCE_KIND, Declaration.toString)
     }
   }
 
