@@ -8,6 +8,9 @@ import scala.tools.eclipse.testsetup.TestProjectSetup
 import org.junit.Before
 import org.eclipse.core.runtime.NullProgressMonitor
 import scala.tools.eclipse.testsetup.SDTTestUtils
+import org.scala.tools.eclipse.search.ProjectChangeObserver
+import java.util.concurrent.CountDownLatch
+import org.eclipse.core.resources.IProject
 
 class ProjectFinderTest extends ProjectFinder {
 
@@ -34,6 +37,8 @@ class ProjectFinderTest extends ProjectFinder {
   @Before
   def setup {
 
+    Set(projectA, projectB, projectC, projectD, projectE) foreach ensureIsOpen
+
     def setupIsReady = {
        0 == projectA.getReferencedProjects().size   &&
       (2 == projectA.getReferencingProjects().size) && // A and C
@@ -47,15 +52,11 @@ class ProjectFinderTest extends ProjectFinder {
       (0 == projectE.getReferencingProjects().size)
     }
 
+    // Can't get rid of this. Just because the projects are open doesn't
+    // mean that the getReferencedProjects and getReferencingProjects are
+    // initialized properly yet. Aparrently. If we remove this block
+    // the conditions below will fail.
     SDTTestUtils.waitUntil(10000)(setupIsReady)
-
-    // Making sure the set-up is as we expect it to be.
-
-    assertTrue(projectA.isOpen)
-    assertTrue(projectB.isOpen)
-    assertTrue(projectC.isOpen)
-    assertTrue(projectD.isOpen)
-    assertTrue(projectE.isOpen)
 
     assertEquals(0, projectA.getReferencedProjects().size)
     assertEquals(2, projectA.getReferencingProjects().size) // A and C
@@ -104,6 +105,25 @@ class ProjectFinderTest extends ProjectFinder {
     assertEquals(Set(projectE), closure)
   }
 
+  @Test def dontListProjectsThatAreClosed {
+    // Projects that are closed should not be included in the
+    // closure.
+
+    val latch = new CountDownLatch(1)
+
+    ProjectChangeObserver( onClose = p => {
+      if (p.getName == projectA.getName) {
+        latch.countDown
+      }
+    })
+
+    projectA.close(new NullProgressMonitor)
+    latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+    val closure = projectClosure(projectD)
+
+    assertEquals(Set(projectB, projectC, projectD), closure)
+  }
+
 }
 
 object ProjectFinderTest extends TestUtil {
@@ -115,5 +135,21 @@ object ProjectFinderTest extends TestUtil {
   val projectC = SDTTestUtils.setupProject("C", "org.scala.tools.eclipse.search.tests").underlying
   val projectD = SDTTestUtils.setupProject("D", "org.scala.tools.eclipse.search.tests").underlying
   val projectE = SDTTestUtils.setupProject("E", "org.scala.tools.eclipse.search.tests").underlying
+
+  def ensureIsOpen(p: IProject): Unit = {
+    if (!p.isOpen) {
+      val latch = new CountDownLatch(1)
+      ProjectChangeObserver( onOpen = proj => {
+        if (proj.getName == p.getName) {
+          latch.countDown
+        }
+      })
+      p.open(new NullProgressMonitor)
+      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+      if (!p.isOpen) {
+        fail("Wasn't able to open project " + p.getName)
+      }
+    }
+  }
 
 }
