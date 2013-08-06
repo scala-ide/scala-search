@@ -27,12 +27,12 @@ class ProjectFinder {
         all = all ++ news.toSet
       }
 
-      all
+      all filter ( _.isOpen )
     } else Set.empty
   }
 
   private def refs(project: IProject): Seq[IProject] = {
-    if(project.exists()) {
+    if(project.isOpen) {
       val referenced  = project.getReferencedProjects
       val referencing = project.getReferencingProjects
       (referenced ++ referencing)
