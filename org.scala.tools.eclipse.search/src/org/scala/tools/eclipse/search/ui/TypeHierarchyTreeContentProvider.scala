@@ -20,6 +20,8 @@ import org.scala.tools.eclipse.search.searching.TypeHierarchyNode
 import org.scala.tools.eclipse.search.searching.EvaluatedNode
 import org.scala.tools.eclipse.search.searching.EvaluatingNode
 import org.scala.tools.eclipse.search.searching.LeafNode
+import scala.tools.eclipse.ScalaProject
+import org.scala.tools.eclipse.search.searching.Scope
 
 /**
  * Used by the TypeHierarchyView to produce the content needed for the type hierarchy
@@ -34,21 +36,21 @@ import org.scala.tools.eclipse.search.searching.LeafNode
  * TypeEntity which represents the root of the type hierarchy.
  *
  */
-class TypeHierarchyTreeContentProvider(viewer: TreeViewer) extends ITreeContentProvider with HasLogger {
+class TypeHierarchyTreeContentProvider(
+    viewer: TreeViewer,
+    onExpandNode: (TypeEntity, Scope, IProgressMonitor, Confidence[TypeEntity] => Unit) => Unit) extends ITreeContentProvider with HasLogger {
 
   private val lock = new Object
 
-  private val finder = SearchPlugin.finder
-
-  /* This is the type that is used as the base of the hierarchy, i.e.
-   * the "input" that we should use to produce the content for the
-   * hierarchy.
+  /* This is the "input" that we should use to produce the content for the
+   * hierarchy. The input is a tuple containing the given root entity and
+   * the scope we should use to search for sub-types in.
    */
-  private type InputType = TypeEntity
+  private type InputType = (TypeEntity, Scope)
 
-  /*  This is the base type for the `nodes` in the tree. That is, instances
-   *  of this type is used in the `getElements`, `getChildren` and
-   *  `hasChildren` methods. As such, this is also the type that is
+  /* This is the base type for the `nodes` in the tree. That is, instances
+   * of this type is used in the `getElements`, `getChildren` and
+   * `hasChildren` methods. As such, this is also the type that is
    * passed along to the TypeHierarchyTreeLabelProvider by Eclipse.
    */
   private type ElementType = TypeHierarchyNode
@@ -60,7 +62,7 @@ class TypeHierarchyTreeContentProvider(viewer: TreeViewer) extends ITreeContentP
    *
    * @note Guarded by `lock`.
    */
-  private val cache = new mutable.HashMap[InputType, Seq[ElementType]]
+  private val cache = new mutable.HashMap[TypeEntity, Seq[ElementType]]
 
   /* Needs to be volatile as it's accessed in many different threads (the view
    * thread in dispose and inputChanged) and any of the background jobs started
@@ -77,11 +79,12 @@ class TypeHierarchyTreeContentProvider(viewer: TreeViewer) extends ITreeContentP
   override def inputChanged(viewer: Viewer, oldInput: Object, newInput: Object) = {
     lock.synchronized {
       cache.clear()
-      for {
-        inElem <- Option(newInput) onEmpty logger.debug("inputChanged(), new input was null")
-        newEntity <- inElem.asInstanceOfOpt[InputType] onEmpty logger.debug(s"Wrong element type, found ${inElem.toString}")
-      } {
-        input = newEntity
+      if (newInput == null) {
+        input == null
+      } else {
+        // newInput.asInstanceOfOpt[InputType] returns null for some reason.
+        val (x1: TypeEntity, x2: Scope) = newInput
+        input = (x1, x2)
       }
     }
     viewer.refresh()
@@ -90,11 +93,9 @@ class TypeHierarchyTreeContentProvider(viewer: TreeViewer) extends ITreeContentP
   // Find the initial set of children based on the input passed in
   // inputChanged.
   override def getElements(inputElement: Object): Array[Object] = {
-    (for {
-      element <- inputElement.asInstanceOfOpt[InputType] onEmpty logger.debug(s"getElements() got unexpected type $inputElement")
-    } yield {
-      getChildren(EvaluatedNode(Certain(element)))
-    }) getOrElse Array[Object]()
+    // inputElement.asInstanceOfOpt[InputType] returns None for some reason.
+    val (x1: TypeEntity, _) = inputElement
+    getChildren(EvaluatedNode(Certain(x1)))
   }
 
   // Invoked when expanding nodes.
@@ -140,12 +141,19 @@ class TypeHierarchyTreeContentProvider(viewer: TreeViewer) extends ITreeContentP
     // this is needed to make sure that the view hasn't been closed or
     // a new hierarchy has been created since the job was started.
     val oldRoot = input
+    val scope = input._2
     // Given that this is invoked, we assume that the map doesn't have
     // an entry for this `entity` yet.
     val job = new Job(s"Finding subtypes of ${entity.name}") {
       override def run(monitor: IProgressMonitor): IStatus = {
         var found: Seq[ElementType] = Nil
-        finder.findSubtypes(entity, monitor) { hit => found = EvaluatedNode(hit) +: found }
+        onExpandNode(entity, scope, monitor, (hit: Confidence[TypeEntity]) => {
+          if (oldRoot ne input) {
+            this.cancel()
+          } else {
+            found = EvaluatedNode(hit) +: found
+          }
+        })
         lock.synchronized {
           // make sure it's still the same root.
           if (oldRoot eq input) {
@@ -155,7 +163,12 @@ class TypeHierarchyTreeContentProvider(viewer: TreeViewer) extends ITreeContentP
         }
         // We have to run refresh on the UI thread!
         Display.getDefault().asyncExec(new Runnable() {
-          def run(): Unit = { viewer.refresh() }
+          def run(): Unit = {
+            // Only refresh if the view hasn't been disposed.
+            if (input != null) {
+              viewer.refresh()
+            }
+          }
         })
         Status.OK_STATUS
       }

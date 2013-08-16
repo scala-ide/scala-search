@@ -9,6 +9,7 @@ import org.eclipse.jdt.core.IClasspathEntry
 import scala.Array.canBuildFrom
 import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
 import org.scala.tools.eclipse.search.indexing.Occurrence
+import org.scala.tools.eclipse.search.TypeEntity
 
 trait SourceCreator {
 
@@ -19,8 +20,18 @@ trait SourceCreator {
     def expectedSymbolNamed(nameOpt: Option[String]): Unit = {
       unit.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        val name = spc.entityAt(Location(unit, markers.head)) map { entity =>
+        val name = spc.entityAt(Location(unit, markers.head)).right.toOption.flatten map { entity =>
           entity.name
+        }
+        assertEquals(nameOpt, name)
+      } (fail("Couldn't get Scala source file"))
+    }
+
+    def expectedDisplayName(nameOpt: Option[String]): Unit = {
+      unit.withSourceFile { (sf, pc) =>
+        val spc = new SearchPresentationCompiler(pc)
+        val name = spc.entityAt(Location(unit, markers.head)).right.toOption.flatten collect { case entity: TypeEntity =>
+          entity.displayName
         }
         assertEquals(nameOpt, name)
       } (fail("Couldn't get Scala source file"))
@@ -29,16 +40,29 @@ trait SourceCreator {
     def expectedNames(names: List[String]): Unit = {
       unit.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        val foundnames = spc.possibleNamesOfEntityAt(Location(unit, markers.head))
+        val foundnames = spc.entityAt(Location(unit, markers.head)).right.toOption.flatten map (_.alternativeNames)
         assertEquals(names, foundnames.getOrElse(Nil))
       } (fail("Couldn't get Scala source file"))
     }
 
-    def expectedDeclarationNamed(name: String): Unit = {
+    def expectedSupertypes(expectedNames: String*): Unit = {
       unit.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        val occ = spc.declarationContaining(Location(unit, markers.head))
-        assertEquals(name, occ.map(_.word).getOrElse(""))
+        val loc = Location(unit, markers.head)
+        val entity: Option[TypeEntity] = spc.entityAt(loc).right.toOption.flatten flatMap {
+          case x: TypeEntity => Some(x)
+          case _ => None
+        }
+        val names = entity.get.supertypes.map(_.name)
+        assertEquals(expectedNames, names)
+      }(fail("Couldn't get Scala source file"))
+    }
+
+    def expectedDeclarationNamed(expected: String*): Unit = {
+      unit.withSourceFile { (sf, pc) =>
+        val spc = new SearchPresentationCompiler(pc)
+        val occ = spc.declarationContaining(Location(unit, markers.head)).right.toOption.flatten
+        assertEquals(List(expected:_*), occ.map( e => List(e.name)).getOrElse(Nil))
       } (fail("Couldn't get Scala source file"))
     }
 
@@ -65,12 +89,11 @@ trait SourceCreator {
     def isSame(expected: Boolean): Unit = {
       unit.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        spc.comparator(Location(unit, markers(0))).map { comparator =>
-          comparator.isSameAs(Location(unit, markers(1))) match {
-            case Same => assertEquals(true, expected)
-            case _ => assertEquals(false, expected)
-          }
-        }.getOrElse(fail("Couldn't get comparator for symbol"))
+        val loc = Location(unit, markers(0))
+        spc.entityAt(loc).right.toOption.flatten.get.isReference(Location(unit, markers(1))) match {
+          case Same => assertEquals(expected, true)
+          case _ => assertEquals(expected, false)
+        }
       }((fail("Couldn't get source file")))
     }
 
@@ -79,12 +102,10 @@ trait SourceCreator {
       val loc2 = Location(other.unit, other.markers.head)
       unit.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        spc.comparator(loc1).map { comparator =>
-          comparator.isSameAs(loc2) match {
-            case Same => assertEquals(expected, true)
-            case _ => assertEquals(expected, false)
-          }
-        }.getOrElse(fail("Couldn't get comparator for symbol"))
+        spc.entityAt(loc1).right.toOption.flatten.get.isReference(loc2) match {
+          case Same => assertEquals(expected, true)
+          case _ => assertEquals(expected, false)
+        }
       }((fail("Couldn't get source file")))
     }
 
@@ -145,7 +166,7 @@ trait SourceCreator {
 
       val cleanedText = text.filterNot(_ == CaretMarker).mkString
       val emptyPkg = adhocSimulator.createPackage("")
-      val unit = adhocSimulator.createCompilationUnit(emptyPkg, name, cleanedText.stripMargin).asInstanceOf[ScalaCompilationUnit]
+      val unit = adhocSimulator.createCompilationUnit(emptyPkg, name, cleanedText).asInstanceOf[ScalaCompilationUnit]
 
       unit +: _sources
 

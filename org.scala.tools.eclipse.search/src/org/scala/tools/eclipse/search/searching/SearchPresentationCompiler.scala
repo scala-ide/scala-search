@@ -15,6 +15,11 @@ import org.scala.tools.eclipse.search.TypeEntity
 import org.scala.tools.eclipse.search.indexing.Declaration
 import org.scala.tools.eclipse.search.indexing.Occurrence
 
+sealed trait CompilerProblem
+case object UnexpectedNoSymbol extends CompilerProblem
+case object UnknownCompilerProblem extends CompilerProblem
+case object CantLoadFile extends CompilerProblem
+
 /**
  * Encapsulates PC logic. Makes it easier to control where the compiler data
  * structures are used and thus make sure that we conform to the synchronization
@@ -23,60 +28,96 @@ import org.scala.tools.eclipse.search.indexing.Occurrence
 class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasLogger {
 
   // ADT used to express the result of symbolAt.
-  protected sealed abstract class SymbolRequest
-  protected case class FoundSymbol(symbol: pc.Symbol) extends SymbolRequest
+  protected sealed abstract class SymbolRequest {
+    // In case you're only interested in the FoundSymbol
+    def toOption: Option[pc.Symbol] = None
+  }
+  protected case class FoundSymbol(symbol: pc.Symbol) extends SymbolRequest {
+    override def toOption: Option[pc.Symbol] = Some(symbol)
+  }
   protected case object MissingSymbol extends SymbolRequest
   protected case object NotTypeable extends SymbolRequest
+  protected case object Unexpected extends SymbolRequest
 
   /**
    * Given a `Location` return a Entity representation of
    * whatever Scala entity is being used or declared at the
    * given position.
-   *
-   * This returns None if the location can't be type-checked
-   * or the file can't be access by the compiler.
    */
-  def entityAt(loc: Location): Option[Entity] = {
-    symbolAt(loc) match {
-      case FoundSymbol(symbol) => pc.askOption { () =>
-        val nme = getName(symbol)
-        if      (symbol.isTrait) Trait(nme, loc)
-        else if (symbol.isClass) Class(nme, loc)
-        else if (symbol.isModule) Module(nme, loc)
-        else if (symbol.isType) Type(nme, loc)
-        else if (symbol.isMethod) Method(nme, loc)
-        else if (symbol.isVal) Val(nme, loc)
-        else if (symbol.isVar) Var(nme, loc)
-        else new UnknownEntity(nme, loc)
+  def entityAt(loc: Location): Either[CompilerProblem, Option[Entity]] = {
+    for {
+      symbolOpt <- (symbolAt(loc) match {
+        case FoundSymbol(symbol) => Right(Some(symbol))
+        case MissingSymbol | NotTypeable => Right(None)
+        case Unexpected => Left(UnexpectedNoSymbol): Either[CompilerProblem, Option[pc.Symbol]]
+      }).right
+      entityOpt <- symbolOpt match {
+        case Some(symbol) => (pc.askOption { () => Right(Some(symbolToEntity(symbol))) }
+                                 getOrElse Left(UnknownCompilerProblem)).right
+        case None => Right(None).right
       }
-      case _ => None
-    }
+    } yield entityOpt
   }
 
   /**
-   * Given two TypeEntities, check if `subType` is a subtype of `superType`.
+   * Given a symbol, create the proper instance of Entity that can safely be
+   * used by clients.
+   *
+   * Note: Needs to be invoked on the presentation compiler thread
    */
-  def isSubtype(superType: TypeEntity, subType: TypeEntity): Boolean = {
+  private def symbolToEntity(symbol: pc.Symbol): Entity = {
 
-    def getSymbol(req: SymbolRequest): Option[pc.Symbol] = req match {
-      case FoundSymbol(sym) => Some(sym)
-      case _ => None
+    val loc = for {
+      file <- Util.scalaSourceFileFromAbstractFile(symbol.sourceFile) onEmpty
+              logger.debug(s"Cound't add location to the entity as it wasn't possible " +
+                            "to get a ScalaSourceFile form symbol.sourceFile")
+      loc  <- pc.locate(symbol, file) onEmpty
+              logger.debug(s"Cound't add location to the entity as it wasn't possible " +
+                            "to get the exact location of the symbol.")
+      (_, offset) = loc
+
+    } yield Location(file, offset)
+
+    val nme = getName(symbol)
+
+    val typeName = {
+      val full = symbol.tpe.toString
+      full.split('.').lastOption.getOrElse(full)
     }
 
-    (for {
-      s1 <- getSymbol(symbolAt(superType.location)) onEmpty logger.debug(s"Couldn't get symbol at ${superType.location}")
-      s2 <- getSymbol(symbolAt(subType.location)) onEmpty logger.debug(s"Couldn't get symbol at ${subType.location}")
-      isSame <- isSameSymbol(s1,s2)
-      isSubtype <- pc.askOption { () =>
-        !isSame && (s2.isSubClass(s1) || s2.typeOfThis.typeSymbol.isSubClass(s1))
-      }
-    } yield isSubtype) getOrElse false
+    trait EntityImpl { this: Entity =>
+      protected final val sym = symbol // Have to do this to avoid compiler bug.
+      override def name = nme
+      override def location = loc
+      override def isReference(loc: Location) = createSymbolComparator(sym).isSameAs(loc)
+      override def alternativeNames = possibleNames(sym).getOrElse(List(name))
+    }
+
+    trait TypeEntityImpl extends EntityImpl { this: TypeEntity =>
+      override def displayName = typeName
+      override def supertypes = directSupertypes(sym)
+    }
+
+    // Make sure the symbol is initialized
+    symbol.initialize // Implementation checks if if it's already initialized
+
+    if (symbol.isJavaInterface) new Interface with TypeEntityImpl
+    else if (symbol.isTrait) new Trait with TypeEntityImpl
+    else if (symbol.isClass) new Class with TypeEntityImpl { override val isAbstract = sym.isAbstractClass }
+    else if (symbol.isModule) new Module with TypeEntityImpl { override def displayName = name }
+    else if (symbol.isType) new Type with TypeEntityImpl
+    else if (symbol.isMethod) new Method with EntityImpl
+    else if (symbol.isVal) new Val with EntityImpl
+    else if (symbol.isVar) new Var with EntityImpl
+    else new UnknownEntity with EntityImpl
   }
 
   /**
    * In case the symbol is a var/val where the name can be either the
    * local name, the setter or the getter the getter name will
    * be used.
+   *
+   * Note: Needs to be invoked on the PC thread
    */
   private def getName(symbol: pc.Symbol): String = {
     if(pc.nme.isSetterName(symbol.name)) {
@@ -89,28 +130,14 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
   }
 
   /**
-   * Used to check if the entity at the given entity is something we
-   * can find occurrences of. This is useful until we support all kinds
-   * of entities.
+   * Scala supports a variety of different syntaxes for referencing the
+   * same entity. This will return a list containing all the valid names
+   * of a given entity.
+   *
+   * For example Foo.apply() and Foo() are both valid names for an invocation
+   * of Foo.apply
    */
-  def canFindReferences(entity: Entity): Boolean = {
-    symbolAt(entity.location) match {
-      case FoundSymbol(symbol) => pc.askOption { () =>
-        symbol.isVal ||
-        symbol.isMethod ||
-        symbol.isConstructor ||
-        symbol.isVar
-      }.getOrElse(false)
-      case _ => false
-    }
-  }
-
-  /**
-   * The name of the symbol at the given location and all the other
-   * valid names for that symbol. For example Foo.apply() and Foo() are
-   * both valid names for an invocation of Foo.apply
-   */
-  def possibleNamesOfEntityAt(loc: Location): Option[List[String]] = {
+  private def possibleNames(symbol: pc.Symbol): Option[List[String]] = {
 
     def namesForValOrVars(symbol: pc.Symbol) = {
       val (setterName, getterName) = {
@@ -130,27 +157,44 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       List(symbol.decodedName.toString, symbol.owner.decodedName.toString)
     }
 
-    def names(symbol: pc.Symbol) = pc.askOption { () =>
+    pc.askOption { () =>
       if (isValOrVar(symbol)) namesForValOrVars(symbol)
       else if (symbol.nameString == "apply") namesForApply(symbol)
       else List(symbol.decodedName.toString)
     }
+  }
 
-    symbolAt(loc) match {
-      case FoundSymbol(symbol) => names(symbol)
-      case _ => None
-    }
+  /**
+   * Given a symbol return the TypeEntity for each of the direct super
+   * types.
+   */
+  private def directSupertypes(symbol: pc.Symbol): Seq[TypeEntity] = {
+
+    def isRealSymbol(s: pc.Symbol) = s != null && s != pc.NoSymbol
+
+    pc.askOption { () =>
+      for {
+        parent  <- symbol.parentSymbols if isRealSymbol(parent)
+        entity  =  symbolToEntity(parent)
+        typed   <- Some(entity) collect { case t: TypeEntity => t }
+      } yield typed
+    } getOrElse Nil
   }
 
   /**
    * Given a location, find the declaration that contains the
-   * given location. Consider the example below
+   * given location and return the declared entity.
    *
    *   class A extends Foo with Bar
    *
-   * If the location is Foo it will return the location of A.
+   * If the location is Foo it will return A
+   *
+   * Note: The InteractiveCompilationUnit referenced by `loc`
+   *       needs to be part of the ScalaProject that is managed
+   *       by the presentation compiler used to instantiate this
+   *       instance of SearchPresentationCompiler
    */
-  def declarationContaining(loc: Location): Option[Occurrence] = {
+  def declarationContaining(loc: Location): Either[CompilerProblem, Option[Entity]] = {
 
     loc.cu.withSourceFile { (sf,locPc) =>
 
@@ -161,30 +205,22 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
           (t.isInstanceOf[ModuleDef] || t.isInstanceOf[ClassDef]) && super.isEligible(t)
       }
 
-      def matches(name: Name, t: Tree) = Occurrence(
-        name.decoded.toString,
-        loc.cu.asInstanceOf[ScalaCompilationUnit],
-        t.pos.point,
-        Declaration,
-        t.pos.lineContent,
-        isInSuperPosition = false)
-
       locPc.withParseTree(sf) { parsed =>
         val pos = new OffsetPosition(sf, loc.offset)
         new ModuleDefOrClassDefLocator(pos).locateIn(parsed) match {
-          case t @ ModuleDef(_, name, Template(supers, _, body)) => Some(matches(name, t))
-          case t @ ClassDef(_, name, _, Template(supers, ValDef(_,_,selfType,_), body)) => Some(matches(name, t))
-          case _ => None
+          case t: ModuleDef => entityAt(Location(loc.cu, t.pos.point))
+          case t @ ClassDef(_, name, _ , _) if name.startsWith("$anon") => Right(None) // Ignoring anonymous types for now, till we have #1001818
+          case t: ClassDef => entityAt(Location(loc.cu, t.pos.point))
+          case _ => Right(None)
         }
       }
-    }(None)
+    }(Left(CantLoadFile))
   }
 
   /**
-   * Get a comparator for a symbol at a given Location. The Comparator can be
-   * used to see if symbols at other locations are the same as this symbol.
+   * Comparator that can be used to compare symbols.
    */
-  def comparator(loc: Location): Option[SymbolComparator] = {
+  private def createSymbolComparator(symbol: pc.Symbol) = SymbolComparator { otherLoc =>
 
     def compare(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = pc.askOption { () =>
       if (s1.isLocal || s2.isLocal) isSameSymbol(s1,s2)
@@ -193,24 +229,17 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       else isSameSymbol(s1, s2)
     } flatten
 
-    def createComparator(symbol: pc.Symbol) = SymbolComparator { otherLoc =>
-      otherLoc.cu.withSourceFile { (_, otherPc) =>
-        val otherSpc = new SearchPresentationCompiler(otherPc)
-        otherSpc.symbolAt(otherLoc) match {
-          case otherSpc.FoundSymbol(symbol2) => (for {
-            imported <- importSymbol(otherSpc)(symbol2)
-            isSame   <- compare(symbol,imported)
-            result   = if(isSame) Same else NotSame
-          } yield result) getOrElse NotSame
-          case _ => PossiblySame
-        }
-      }(PossiblySame)
-    }
-
-    symbolAt(loc) match {
-      case FoundSymbol(symbol) => Some(createComparator(symbol))
-      case _ => None
-    }
+    otherLoc.cu.withSourceFile { (_, otherPc) =>
+      val otherSpc = new SearchPresentationCompiler(otherPc)
+      otherSpc.symbolAt(otherLoc) match {
+        case otherSpc.FoundSymbol(symbol2) => (for {
+          imported <- importSymbol(otherSpc)(symbol2)
+          isSame   <- compare(symbol,imported)
+          result   = if(isSame) Same else NotSame
+        } yield result) getOrElse NotSame
+        case _ => PossiblySame
+      }
+    }(PossiblySame)
   }
 
   /**
@@ -229,12 +258,14 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       pc.askTypeAt(pos, typed)
       typed.get.fold(
         tree => {
-          (for {
-            (overloaded, treePos) <- pc.askOption { () => (tree.symbol.isOverloaded, tree.pos) }
-            if overloaded
-          } yield {
-            resolveOverloadedSymbol(treePos, sf)
-          }).getOrElse(filterNoSymbols(tree.symbol))
+          if (tree == pc.EmptyTree) MissingSymbol else {
+            (for {
+              symbol <- Option(tree.symbol)
+            } yield (for {
+              (overloaded, treePos) <- pc.askOption { () => (symbol.isOverloaded, tree.pos) } if overloaded
+            } yield resolveOverloadedSymbol(treePos, sf))
+                    getOrElse filterNoSymbols(symbol)) getOrElse Unexpected
+          }
         },
         err => {
           logger.debug(err)
