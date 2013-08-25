@@ -40,8 +40,9 @@ class ResultLabelProvider extends StyledCellLabelProvider with HasLogger {
         val styled = new StyledString(line.trim)
         text.append(styled)
       case Uncertain(Hit(_,_,line,_)) =>
-        val styled = new StyledString(s"(?) ${line.trim}")
+        val styled = new StyledString(line.trim)
         text.append(styled)
+        text.append(" - Potential match", StyledString.QUALIFIER_STYLER)
       case x =>
         logger.debug(s"Expected content of either a tuple or Confidence[Hit], got: ${x}")
     }

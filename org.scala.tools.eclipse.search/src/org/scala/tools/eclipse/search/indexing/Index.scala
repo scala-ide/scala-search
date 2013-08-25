@@ -38,6 +38,7 @@ import scala.tools.eclipse.ScalaProject
 import scala.util.Success
 import scala.util.Failure
 import scala.collection.mutable.ArraySeq
+import org.scala.tools.eclipse.search.searching.Scope
 
 trait SearchFailure
 case class BrokenIndex(project: ScalaProject) extends SearchFailure
@@ -108,24 +109,37 @@ trait Index extends HasLogger {
   //  TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001661-make-max-number-of-matches-configurable
   protected val MAX_POTENTIAL_MATCHES = 100000
 
-  def findOccurrences(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
-    findOccurrences(List(word), projects)
+  def findOccurrences(word: String, scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
+    findOccurrences(List(word), scope)
   }
 
   /**
    * Search the projects for all occurrences of the `word` that are in super-position, i.e.
    * mentioned as a super-class or self-type.
    */
-  def findOccurrencesInSuperPosition(word: String, projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+  def findOccurrencesInSuperPosition(word: String, scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
 
     val query = new BooleanQuery()
     query.add(new TermQuery(Terms.isInSuperPosition), BooleanClause.Occur.MUST)
     query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
 
-    val resuts = queryProjects(query, projects)
+    val resuts = queryScope(query, scope)
 
     groupSearchResults(resuts.seq)
   }
+
+  /**
+    * Search the projects for all occurrence of the `word` that are found in declarations.
+    */
+   def findDeclarations(word: String, scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
+     val query = new BooleanQuery()
+     query.add(new TermQuery(Terms.isDeclaration), BooleanClause.Occur.MUST)
+     query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
+
+     val resuts = queryScope(query, scope)
+
+     groupSearchResults(resuts.seq)
+   }
 
   /**
    * Search the relevant project indices for all occurrences of the given words.
@@ -134,7 +148,7 @@ trait Index extends HasLogger {
    * sequence containing information about failed searches, if any. A search can fail
    * if the Index in inaccessible or broken.
    */
-  def findOccurrences(words: List[String], projects: Set[ScalaProject]): (Seq[Occurrence], Seq[SearchFailure]) = {
+  def findOccurrences(words: Seq[String], scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
 
     val query = new BooleanQuery()
     val innerQuery = new BooleanQuery()
@@ -145,13 +159,13 @@ trait Index extends HasLogger {
     }
     query.add(innerQuery, BooleanClause.Occur.MUST)
 
-    val resuts = queryProjects(query, projects)
+    val resuts = queryScope(query, scope)
 
     groupSearchResults(resuts.seq)
   }
 
-  private def queryProjects(query: BooleanQuery, projects: Set[ScalaProject]): Set[(ScalaProject, Try[ArraySeq[Occurrence]])] = {
-    projects.par.map { project =>
+  private def queryScope(query: BooleanQuery, scope: Scope): Set[(ScalaProject, Try[ArraySeq[Occurrence]])] = {
+    scope.projects.par.map { project =>
       val resultsForProject = withSearcher(project){ searcher =>
         for {
           hit        <- searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
@@ -272,6 +286,10 @@ trait Index extends HasLogger {
 
     def isInSuperPosition = {
       new Term(LuceneFields.IS_IN_SUPER_POSITION, "true")
+    }
+
+    def isDeclaration = {
+      new Term(LuceneFields.OCCURRENCE_KIND, Declaration.toString)
     }
   }
 

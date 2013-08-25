@@ -12,9 +12,10 @@ import org.scala.tools.eclipse.search.ProjectChangeObserver
 import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IProject
 
-class ProjectFinderTest extends ProjectFinder {
+class ProjectFinderTest {
 
   import ProjectFinderTest._
+  import ProjectFinder._
 
   /* The set-up looks like this:
    *

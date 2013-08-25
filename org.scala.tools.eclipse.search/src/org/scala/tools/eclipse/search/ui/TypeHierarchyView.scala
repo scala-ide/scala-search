@@ -22,6 +22,9 @@ import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
 import scala.tools.eclipse.ScalaSourceFileEditor
+import scala.tools.eclipse.ScalaProject
+import org.scala.tools.eclipse.search.searching.Scope
+import org.scala.tools.eclipse.search.searching.Certain
 
 /**
  * This view presents a type hierarchy of a given type. The view consists of
@@ -37,6 +40,7 @@ import scala.tools.eclipse.ScalaSourceFileEditor
  */
 class TypeHierarchyView extends ViewPart with HasLogger {
 
+  private val finder = SearchPlugin.finder
   private val reporter: ErrorReporter = new DialogErrorReporter
 
   var superclasses: TreeViewer = _
@@ -44,10 +48,11 @@ class TypeHierarchyView extends ViewPart with HasLogger {
   var superLabel: Label = _
   var subLabel: Label = _
 
-  def setRoot(entity: TypeEntity): Unit = {
-    subclasses.setInput(entity)
-    superLabel.setText(s"Super-classes of '${entity.name}'")
-    subLabel.setText(s"Sub-classes of '${entity.name}'")
+  def setRoot(entity: TypeEntity, scope: Scope): Unit = {
+    subclasses.setInput((entity, scope))
+    superclasses.setInput((entity, scope))
+    superLabel.setText(s"Super-classes of '${entity.displayName}'")
+    subLabel.setText(s"Sub-classes of '${entity.displayName}'")
   }
 
   def clear(): Unit = {
@@ -74,9 +79,11 @@ class TypeHierarchyView extends ViewPart with HasLogger {
     configure(superclasses)
     setupEventHandler(superclasses)
 
-    superclasses.setContentProvider(new TypeHierarchyTreeContentProvider(superclasses))
-    superclasses.setLabelProvider(new TypeHierarchyTreeLabelProvider)
-    superclasses.getControl().setEnabled(false)
+    superclasses.setContentProvider(
+        new TypeHierarchyTreeContentProvider(superclasses, (e, _, _, h) => e.supertypes map Certain.apply foreach h))
+    superclasses.setLabelProvider(new TypeHierarchyTreeLabelProvider(
+        leafLabel = "No Super-types"
+    ))
 
     // Configure the Sub-types view
     subLabel = new Label(parent, SWT.NONE)
@@ -87,8 +94,11 @@ class TypeHierarchyView extends ViewPart with HasLogger {
     configure(subclasses)
     setupEventHandler(subclasses)
 
-    subclasses.setContentProvider(new TypeHierarchyTreeContentProvider(subclasses))
-    subclasses.setLabelProvider(new TypeHierarchyTreeLabelProvider)
+    subclasses.setContentProvider(
+        new TypeHierarchyTreeContentProvider(subclasses, (e, s, m, h) => finder.findSubtypes(e, s, m)(h)))
+    subclasses.setLabelProvider(new TypeHierarchyTreeLabelProvider(
+        leafLabel = "No Sub-types"
+    ))
 
     // Configure the Inspector view
     val inspectLabel = new Label(parent, SWT.NONE)
@@ -102,6 +112,7 @@ class TypeHierarchyView extends ViewPart with HasLogger {
 
   private def configure(viewer: Viewer): Unit = {
     val data = new GridData()
+    data.heightHint = (viewer.getControl.getParent().getSize().y / 3) // LOL! Uses y to represent the height of the view.
     data.verticalAlignment = GridData.FILL
     data.horizontalAlignment = GridData.FILL
     data.grabExcessHorizontalSpace = true
@@ -117,13 +128,14 @@ class TypeHierarchyView extends ViewPart with HasLogger {
           selection <- event.getSelection().asInstanceOfOpt[IStructuredSelection]
           node      <- selection.getFirstElement().asInstanceOfOpt[EvaluatedNode] onEmpty logger.debug("Unexpected selection type")
           page      <- Option(JavaPlugin.getActivePage) onEmpty reporter.reportError("Couldn't get active page")
-          file      <- Util.getWorkspaceFile(node.elem.value.location.cu) onEmpty reporter.reportError("File no longer exists")
+          location  <- node.elem.value.location onEmpty reporter.reportError("The type isn't defined in any sources we have access to")
+          file      <- Util.getWorkspaceFile(location.cu) onEmpty reporter.reportError("File no longer exists")
           val input = new FileEditorInput(file)
           desc      <- Option(IDE.getEditorDescriptor(file.getName()))
           part      <- Option(IDE.openEditor(page, input, desc.getId()))
           editor <- part.asInstanceOfOpt[ScalaSourceFileEditor]
         } {
-          editor.selectAndReveal(node.elem.value.location.offset, node.elem.value.name.length)
+          editor.selectAndReveal(location.offset, node.elem.value.name.length)
         })
 
       }

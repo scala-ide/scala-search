@@ -29,6 +29,10 @@ import org.scala.tools.eclipse.search.searching.Uncertain
 import scala.tools.eclipse.javaelements.ScalaSourceFile
 import org.scala.tools.eclipse.search.searching.Confidence
 import org.eclipse.search.ui.text.Match
+import scala.tools.eclipse.ScalaProject
+import org.scala.tools.eclipse.search.searching.ProjectFinder
+import scala.tools.eclipse.ScalaPlugin
+import org.scala.tools.eclipse.search.searching.Scope
 
 class FindOccurrences
   extends AbstractHandler
@@ -44,11 +48,15 @@ class FindOccurrences
       selection   <- UIUtil.getSelection(scalaEditor) onEmpty reporter.reportError("You need to have a selection")
     } {
       scalaEditor.getInteractiveCompilationUnit.withSourceFile { (_, pc) =>
+        // Get the relevant scope to search for sub-types in.
+        val scope = ProjectFinder.projectClosure(scalaEditor.getInteractiveCompilationUnit.scalaProject.underlying)
+        val scalaScope = Scope(scope.map(ScalaPlugin.plugin.asScalaProject(_)).flatten)
+        // Get the entity at the given location and start a search in the right scope
         val spc = new SearchPresentationCompiler(pc)
         val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
-        spc.entityAt(loc) map { entity =>
-          if (spc.canFindReferences(entity)) {
-            startSearch(entity)
+        spc.entityAt(loc).right.toOption.flatten map { entity =>
+          if (entity.canFindReferences) {
+            startSearch(entity, scalaScope)
           } else reporter.reportError("Sorry, that kind of entity isn't supported yet.")
         } getOrElse(reporter.reportError("Couldn't recognize the enity of the selection"))
       }()
@@ -57,7 +65,7 @@ class FindOccurrences
     null // According to the Eclipse docs we have to return null.
   }
 
-  private def startSearch(entity: Entity): Unit = {
+  private def startSearch(entity: Entity, scope: Scope): Unit = {
     NewSearchUI.runQueryInBackground(new ISearchQuery(){
 
       val sr = new SearchResult(this)
@@ -72,7 +80,7 @@ class FindOccurrences
         s"'${entity.name}' - ${hitsCount} exact matches, $potentialHitsCount potential matches. Total ${hitsCount+potentialHitsCount}"
 
       override def run(monitor: IProgressMonitor): IStatus = {
-        finder.occurrencesOfEntityAt(entity, monitor)(
+        finder.occurrencesOfEntityAt(entity, scope, monitor)(
             handler = (h: Confidence[Hit]) => h match {
               case Certain(hit) =>
                 hitsCount += 1

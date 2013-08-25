@@ -23,6 +23,9 @@ import org.eclipse.ui.ide.IDE
 import org.eclipse.ui.ide.IDE
 import scala.tools.eclipse.util.Utils._
 import scala.tools.eclipse.ScalaSourceFileEditor
+import org.scala.tools.eclipse.search.searching.Confidence
+import org.scala.tools.eclipse.search.searching.Certain
+import org.scala.tools.eclipse.search.searching.Uncertain
 
 /**
  * The page that is responsible for displaying the results of executing
@@ -73,9 +76,21 @@ class SearchResultPage
   }
 
   override protected def handleOpen(event: OpenEvent): Unit = {
+
+    def getElement(selection: IStructuredSelection): Option[Hit] = {
+      val elem = selection.getFirstElement()
+      elem match {
+        case Certain(x: Hit) => Some(x)
+        case Uncertain(x: Hit) => Some(x)
+        case _ =>
+          logger.debug(s"Unexpected selection type, got ${elem.getClass}")
+          None
+      }
+    }
+
     (for {
       selection <- event.getSelection().asInstanceOfOpt[IStructuredSelection]
-      hit       <- selection.getFirstElement().asInstanceOfOpt[Hit] onEmpty logger.debug("Unexpected selection type")
+      hit       <- getElement(selection)
       page      <- Option(JavaPlugin.getActivePage) onEmpty reporter.reportError("Couldn't get active page")
       file      <- Util.getWorkspaceFile(hit.cu) onEmpty reporter.reportError("File no longer exists")
       val input = new FileEditorInput(file)

@@ -83,8 +83,8 @@ object OccurrenceCollector extends HasLogger {
             occurrences += mkOccurrence(name.decodedName.toString, Declaration)
             isSuper = true
             traverseTrees(supers)
-            traverse(selfType)
             isSuper = false
+            traverse(selfType)
             traverseTrees(body)
 
           // Object definition
@@ -94,6 +94,14 @@ object OccurrenceCollector extends HasLogger {
             traverseTrees(supers)
             isSuper = false
             traverseTrees(body)
+
+          // Make sure that type arguments aren't listed as being in 'super-type' position
+          case AppliedTypeTree(tpe, args) =>
+            traverse(tpe)
+            val oldIsSuper = isSuper
+            isSuper = false
+            traverseTrees(args)
+            isSuper = oldIsSuper
 
           case _ =>
             super.traverse(t)

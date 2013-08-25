@@ -21,6 +21,8 @@ import java.io.IOException
 import org.junit.After
 import org.junit.Before
 import org.scala.tools.eclipse.search.TypeEntity
+import scala.tools.eclipse.logging.HasLogger
+import org.junit.Ignore
 
 class FinderTest {
 
@@ -61,7 +63,7 @@ class FinderTest {
 
     @volatile var results = 0
     val location = Location(sourceA.unit, sourceA.markers.head)
-    find(finder, location) { hit =>
+    find(finder, location, Scope(Set(project.scalaProject))) { hit =>
       results += 1
       hitLatch.countDown
     }
@@ -102,7 +104,7 @@ class FinderTest {
 
     @volatile var results = 0
     val location = Location(sourceA.unit, sourceA.markers.head)
-    find(finder, location) { hit =>
+    find(finder, location, Scope(Set(project.scalaProject))) { hit =>
       results += 1
       hitLatch.countDown
     }
@@ -145,12 +147,12 @@ class FinderTest {
     val loc1 = Location(sourceA.unit, sourceA.markers(0))
     val loc2 = Location(sourceA.unit, sourceA.markers(1))
 
-    find(finder, loc1) { hit =>
+    find(finder, loc1, Scope(Set(project.scalaProject))) { hit =>
       resultsForGetter += 1
       hitLatch.countDown
     }
 
-    find(finder, loc2) { hit =>
+    find(finder, loc2, Scope(Set(project.scalaProject))) { hit =>
       resultsForSetter += 1
       hitLatch.countDown
     }
@@ -198,7 +200,7 @@ class FinderTest {
 
     @volatile var results = 0
     val location = Location(sourceA.unit, sourceA.markers.head)
-    find(finder, location) { hit =>
+    find(finder, location, Scope(Set(project1.scalaProject, project2.scalaProject))) { hit =>
       results += 1
       hitLatch.countDown
     }
@@ -220,28 +222,94 @@ class FinderTest {
    */
 
   @Test
-  def findAllSubclassesWorksWithClasses = subclassTest("WithsWithClasses"){"""
+  def findAllSubclassesWorksWithClasses = subclassesNamed("WithsWithClasses"){"""
     class |Foo
     class |Bar extends Foo
-  """}
+  """}(List("Bar"))
 
   @Test
-  def findAllSubclassesWorksWithTraits = subclassTest("WorksWithTraits"){"""
+  def findAllSubclassesWorksWithTraits = subclassesNamed("WorksWithTraits"){"""
     trait |Foo
     trait |Bar extends Foo
-  """}
+  """}(List("Bar"))
 
   @Test
-  def findAllSubclassesWorksWithSelfTypes = subclassTest("WorksWithSelfTypes"){"""
+  def findAllSubclassesIgnoresSelftypes = subclassesNamed("FindAllSubclassesIgnoresSelftypes"){"""
     trait |Foo
-    trait |Bar { this: Foo => }
-  """}
+    trait Bar { this: Foo => }
+  """}(Nil)
 
   @Test
-  def findAllSubclassesIgnoresTypeConstructorArguments = subclassesNamed("WorksWithSelfTypes"){"""
+  def findAllSubclassesIgnoresTypeConstructorArguments = subclassesNamed("FindAllSubclassesIgnoresTypeConstructorArguments"){"""
     trait Bar[A]
     trait |Foo extends Bar[Foo]
   """}(Nil) // I.e. make sure that Foo doesn't count as a subtype of Foo.
+
+  @Test
+  def findAllSubclasses_worksWithTypeArguments = subclassesNamed("FindAllSubclassesIgnoresTypeConstructorArguments"){"""
+    trait |Bar[A]
+    trait |Foo extends Bar[Foo]
+  """}(List("Foo"))
+
+  @Test
+  def findAllSubclasses_worksWithNestedTypeConstructors = subclassesNamed("FindAllSubclassesWorksWithNestedTypeConstructors") {"""
+    trait |Foo[A]
+    trait Bar extends Foo[Foo[String]]
+  """}(List("Bar")) // make sure Foo isn't listed twice.
+
+  @Test
+  def findAllSubclasses_worksWithTypesFromSTDLib = subclassesNamed("FindAllSubclassesWorksWithTypesFromSTDLib") {"""
+    trait StringOrdering extends |Ordering[String]
+  """}(List("StringOrdering"))
+
+  @Ignore("Ticket #1001818")
+  @Test
+  def findAllSubclasses_findAnonymousInstantiations = subclassesNamed("FindAllSubclassesFindAnonymousInstantiations") {"""
+      object Container {
+        trait Foo
+        trait Bar extends Foo
+        trait |FooImpl { this: Foo => }
+        new Bar with FooImpl
+      }
+  """}(List("new Bar with FooImpl"))
+
+  @Test
+  def findAllSubclasses_canUseTypeParameterOfMethod = subclassesNamed("FindAllSubclassesCanUseTypeParameterOfMethod") {"""
+    class A
+    class B extends A {
+      classOf[|A]
+    }
+  """}(List("B"))
+
+  @Test
+  def findAllSubclasses_typeParametersAreNotSuperTypes = subclassesNamed("FindAllSubclassesTypeParametersAreNotSuperTypes") {"""
+    class |A
+    abstract class B extends Function1[A,Unit]
+  """}(Nil)
+
+  /*
+   * -----------------
+   * findSupertypes
+   * -----------------
+   */
+
+  @Test
+  def findSuperclassesWorksWithClasses = superclassesNamed("WithsWithClasses"){"""
+    class Foo
+    class |Bar extends Foo
+  """}(List("Foo"))
+
+  @Test
+  def findSuperclassesWorksWithTraits = superclassesNamed("WorksWithTraits"){"""
+    trait Foo
+    trait |Bar extends Foo
+  """}(List("Foo", "Object"))
+
+  @Test
+  def findSuperclassesDoesntCountSelfTypesAsSuperType = superclassesNamed("FindSuperclassesDoesntCountSelfTypesAsSuperType"){"""
+    trait Foo
+    trait |Bar { this: Foo => }
+  """}(List("Object"))
 
   /*
    * -------------------
@@ -298,8 +366,8 @@ class FinderTest {
     @volatile var failures = 0
 
     val location = Location(sourceA.unit, sourceA.markers.head)
-    finder.entityAt(location) map { entity =>
-      finder.occurrencesOfEntityAt(entity, new NullProgressMonitor)(
+    finder.entityAt(location).right.toOption.flatten map { entity =>
+      finder.occurrencesOfEntityAt(entity, Scope(Set(project1.scalaProject, project2.scalaProject)), new NullProgressMonitor)(
         handler = _ => {
           hits += 1
           hitLatch.countDown
@@ -352,7 +420,7 @@ class FinderTest {
     @volatile var hits = 0
     @volatile var potentialHits = 0
     val location = Location(sourceA.unit, sourceA.markers.head)
-    find(finder, location) {
+    find(finder, location, Scope(Set(project.scalaProject))) {
       case Certain(_) => {
         hits += 1
         hitLatch.countDown
@@ -375,7 +443,8 @@ class FinderTest {
 }
 
 object FinderTest extends TestUtil
-    with SourceCreator {
+    with SourceCreator
+    with HasLogger {
 
   val INDEX_DIR = new Path(mkPath("target", "FinderTestIndex"))
 
@@ -387,42 +456,6 @@ object FinderTest extends TestUtil
   }
 
   def anonymousFinder(index: Index): Finder =  new Finder(index, new LogErrorReporter)
-
-  // Convenience method to create tests for finding subclasses. The `text` simply
-  // needs to contain some class declarations. The first marker should be placed at
-  // the class to find sub-types of. The rest of the markers represent the expected
-  // results (i.e. a marker at a declaration means that you expect to find that
-  // type as a sub-type of the first marker).
-  def subclassTest(name: String)(text: String): Unit = {
-    val project = Project(s"FindAllSubclassesTest-$name")
-
-    val indexer = anonymousIndexer
-    val finder = anonymousFinder(indexer.index)
-
-    val source = project.create(s"$name.scala")(text)
-
-    indexer.indexProject(project.scalaProject)
-
-    var hitsOffsets = List[Int]()
-
-    val location = Location(source.unit, source.markers.head)
-    finder.entityAt(location) foreach {
-      case entity: TypeEntity => finder.findSubtypes(entity, new NullProgressMonitor) { hit =>
-        if (source.markers.contains(hit.value.location.offset)) {
-          hitsOffsets = hit.value.location.offset :: hitsOffsets
-        }
-      }
-      case x => fail(s"Expected a subclass of TypeEntity, but got $x")
-    }
-
-    val notFound = source.markers.tail.filter(!hitsOffsets.contains(_))
-
-    project.delete
-
-    assertEquals(
-        s"Expected it to find subclasses at all markers, but didn't find: ${notFound}, found ${hitsOffsets}",
-        true, notFound.isEmpty)
-  }
 
   def subclassesNamed(name: String)(text: String)(names: List[String]): Unit = {
     val project = Project(s"FindAllSubclassesNamedTest-$name")
@@ -437,23 +470,46 @@ object FinderTest extends TestUtil
     var hitNames = List[String]()
 
     val location = Location(source.unit, source.markers.head)
-    finder.entityAt(location) foreach {
-      case entity: TypeEntity => finder.findSubtypes(entity, new NullProgressMonitor) { hit =>
-        if (source.markers.contains(hit.value.location.offset)) {
-          hitNames = hit.value.name +: hitNames
-        }
+    finder.entityAt(location).right.toOption.flatten foreach {
+      case entity: TypeEntity => finder.findSubtypes(entity, Scope(Set(project.scalaProject)), new NullProgressMonitor) { hit =>
+        hitNames = hit.value.name +: hitNames
       }
       case x => fail(s"Expected a subclass of TypeEntity, but got $x")
     }
 
     project.delete
 
-    assertEquals(names.toSet, hitNames.toSet)
+    assertEquals(names.sorted, hitNames.sorted)
   }
 
-  def find(finder: Finder, loc: Location)(f: Confidence[Hit] => Unit): Unit = {
-    finder.entityAt(loc) map { entity =>
-      finder.occurrencesOfEntityAt(entity, new NullProgressMonitor)(
+  def superclassesNamed(name: String)(text: String)(names: List[String]): Unit = {
+    val project = Project(s"FindAllSuperclassesNamedTest-$name")
+
+    val indexer = anonymousIndexer
+    val finder = anonymousFinder(indexer.index)
+
+    val source = project.create(s"$name.scala")(text)
+
+    indexer.indexProject(project.scalaProject)
+
+    var hitNames = List[String]()
+
+    val location = Location(source.unit, source.markers.head)
+    finder.entityAt(location).right.toOption.flatten foreach {
+      case entity: TypeEntity => entity.supertypes foreach { supertype =>
+        hitNames = supertype.name +: hitNames
+      }
+      case x => fail(s"Expected a subclass of TypeEntity, but got $x")
+    }
+
+    project.delete
+
+    assertEquals(names.sorted, hitNames.sorted)
+  }
+
+  def find(finder: Finder, loc: Location, scope: Scope)(f: Confidence[Hit] => Unit): Unit = {
+    finder.entityAt(loc).right.toOption.flatten map { entity =>
+      finder.occurrencesOfEntityAt(entity, scope, new NullProgressMonitor)(
         handler = h => f(h)
       )
     } getOrElse fail("Couldn't get entity")
