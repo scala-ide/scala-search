@@ -389,8 +389,11 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
     // otherwise it would access thread unsafe members in spc.pc when importing the symbol
     // into pc.
     spc.pc.askOption { () =>
-      s.initialize
-      s.ownerChain.foreach(_.initialize)
+      def fullyInitialize(thisSym: spc.pc.Symbol): Unit = {
+        spc.pc.definitions.fullyInitializeSymbol(thisSym)
+        thisSym.sourceModule.initialize
+      }
+      (s :: s.ownerChain) foreach (fullyInitialize)
     } onEmpty (logger.debug("Timed out on initializing symbol before import"))
 
     pc.askOption { () =>
