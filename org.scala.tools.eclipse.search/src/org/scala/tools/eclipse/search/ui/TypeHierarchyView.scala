@@ -100,7 +100,11 @@ class TypeHierarchyView extends ViewPart with HasLogger {
         leafLabel = "No Sub-types"
     ))
 
-    // Configure the Inspector view
+    // disabled as displaying of members isn't yet implemented
+    // addInspectorView(parent)
+  }
+
+  private def addInspectorView(parent: Composite): Unit = {
     val inspectLabel = new Label(parent, SWT.NONE)
     inspectLabel.setText("Inspector")
     inspectLabel.setLayoutData(new GridData(GridData.GRAB_HORIZONTAL | GridData.HORIZONTAL_ALIGN_FILL))
