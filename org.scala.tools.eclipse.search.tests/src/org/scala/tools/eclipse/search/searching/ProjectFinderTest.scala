@@ -28,7 +28,7 @@ class ProjectFinderTest {
    *    (A)        (E)
    *    / \
    *   /   \
-   * (B)––>(C)
+   * (B)-->(C)
    *        |
    *        |
    *       (D)
