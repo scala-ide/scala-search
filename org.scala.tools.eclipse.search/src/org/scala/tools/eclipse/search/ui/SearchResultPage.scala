@@ -4,7 +4,7 @@ package ui
 import scala.reflect.runtime.universe
 import scala.tools.eclipse.ScalaSourceFileEditor
 import scala.tools.eclipse.logging.HasLogger
-import scala.tools.eclipse.util.Utils.WithAsInstanceOfOpt
+import scala.tools.eclipse.util.Utils._
 
 import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.jface.viewers.IStructuredSelection
