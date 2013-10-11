@@ -39,7 +39,7 @@ object OccurrenceCollector extends HasLogger {
         pcompiler.withParseTree(source) { tree =>
           Success(findOccurrences(pcompiler)(file, tree)): Try[Seq[Occurrence]]
         }
-      })(failedWithSF)
+      }) getOrElse (failedWithSF)
     } else noFileError
   }
 
