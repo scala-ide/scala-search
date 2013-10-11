@@ -214,7 +214,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
           case _ => Right(None)
         }
       }
-    }(Left(CantLoadFile))
+    } getOrElse (Left(CantLoadFile))
   }
 
   /**
@@ -239,7 +239,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
         } yield result) getOrElse NotSame
         case _ => PossiblySame
       }
-    }(PossiblySame)
+    } getOrElse (PossiblySame)
   }
 
   /**
@@ -271,7 +271,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
           logger.debug(err)
           NotTypeable
         })
-    }(NotTypeable)
+    } getOrElse (NotTypeable)
   }
 
   /**
