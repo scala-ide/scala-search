@@ -59,9 +59,9 @@ class FindOccurrences
             startSearch(entity, scalaScope)
           } else reporter.reportError("Sorry, that kind of entity isn't supported yet.")
         } getOrElse(reporter.reportError("Couldn't recognize the enity of the selection"))
-      }()
+      }
     }
-
+    
     null // According to the Eclipse docs we have to return null.
   }
 
@@ -97,5 +97,4 @@ class FindOccurrences
       override def getSearchResult(): ISearchResult = sr
     })
   }
-
 }
