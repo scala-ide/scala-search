@@ -14,7 +14,7 @@
 
   <groupId>org.scala.tools.eclipse</groupId>
   <artifactId>org.scala.tools.eclipse.search.build</artifactId>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.2.2-SNAPSHOT</version>
   <name>Scala Search</name>
   <packaging>pom</packaging>
 
