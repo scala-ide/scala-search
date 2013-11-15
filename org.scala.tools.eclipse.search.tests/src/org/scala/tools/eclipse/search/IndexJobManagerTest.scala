@@ -25,10 +25,10 @@ class IndexJobManagerTest {
   @Before
   def setup {
     val index = new Index {
-      override val base = new Path(mkPath("target","index-job-manager-test"))
+      override val base = new Path(mkPath("target", "index-job-manager-test"))
     }
     indexer = new SourceIndexer(index)
-    indexManager = new IndexJobManager(indexer) 
+    indexManager = new IndexJobManager(indexer)
     indexManager.startup()
   }
 
@@ -211,14 +211,17 @@ class IndexJobManagerTest {
     p.underlying.delete(true, monitor)
     deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
+    // wait until the index has been removed
+    SDTTestUtils.waitUntil(10000)(!indexer.index.location(p.underlying).toFile.exists)
+
     // expected
     assertFalse(indexer.index.location(p.underlying).toFile.exists)
     observer.stop
   }
 }
 
-object IndexJobManagerTest extends TestProjectSetup("IndexJobManagerTest", bundleName= "org.scala.tools.eclipse.search.tests")
-                             with TestUtil {
+object IndexJobManagerTest extends TestProjectSetup("IndexJobManagerTest", bundleName = "org.scala.tools.eclipse.search.tests")
+  with TestUtil {
 
   val monitor = new NullProgressMonitor()
 
