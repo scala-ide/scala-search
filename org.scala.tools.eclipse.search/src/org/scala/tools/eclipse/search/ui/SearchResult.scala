@@ -63,25 +63,25 @@ class SearchResult(query: ISearchQuery) extends AbstractTextSearchResult {
   def projectNodes: Seq[ProjectNode] = {
     // TODO: Cache this, for speed improvements
 
-    type T = Seq[Confidence[Hit]]
+    type Hits = Seq[Confidence[Hit]]
 
-    def byProjectName(hits: T) = hits groupBy { hit =>
+    def byProjectName(hits: Hits) = hits groupBy { hit =>
       hit.value.cu.scalaProject.underlying.getName
     }
 
-    def byFileName(hits: T) = hits groupBy { hit =>
+    def byFileName(hits: Hits) = hits groupBy { hit =>
       hit.value.cu.workspaceFile.getName
     }
 
-    def mkLineNodes(hits: T): Seq[LineNode] = hits map LineNode.apply
+    def mkLineNodes(hits: Hits): Seq[LineNode] = hits map LineNode.apply
 
-    def mkFileNodes(hits: T): Seq[FileNode] = (byFileName(hits) map {
-      case ((fileName: String, fileHits: Seq[Confidence[Hit]])) =>
+    def mkFileNodes(hits: Hits): Seq[FileNode] = (byFileName(hits) map {
+      case ((fileName: String, fileHits: Hits)) =>
           FileNode(fileName, fileHits.size, mkLineNodes(fileHits))
     }).toSeq
 
-    def mkProjectNodes(hits: T): Seq[ProjectNode] =
-      (byProjectName(hits) map { case ((name: String, projectHits: T)) =>
+    def mkProjectNodes(hits: Hits): Seq[ProjectNode] =
+      (byProjectName(hits) map { case ((name: String, projectHits: Hits)) =>
         ProjectNode(name, projectHits.size, mkFileNodes(projectHits))
       }).toSeq
 

@@ -8,7 +8,7 @@ import org.eclipse.jface.viewers.StyledCellLabelProvider
 import org.eclipse.jface.viewers.StyledString
 import org.eclipse.jface.viewers.ViewerCell
 import org.eclipse.swt.graphics.RGB
-import org.eclipse.ui.ISharedImages
+import org.eclipse.ui.ide.IDE.SharedImages
 import org.eclipse.ui.PlatformUI
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Hit
@@ -32,7 +32,7 @@ class ResultLabelProvider extends StyledCellLabelProvider with HasLogger {
       case ProjectNode(name, count, _) =>
         text.append(name)
         text.append(" (%s)".format(count), StyledString.COUNTER_STYLER)
-        val image = PlatformUI.getWorkbench.getSharedImages.getImage(ISharedImages.IMG_OBJ_PROJECT)
+        val image = PlatformUI.getWorkbench.getSharedImages.getImage(SharedImages.IMG_OBJ_PROJECT)
         cell.setImage(image)
 
       case FileNode(name, count, _) =>
