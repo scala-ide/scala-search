@@ -10,6 +10,18 @@ import org.eclipse.search.ui.text.Match
 import scala.tools.eclipse.ScalaImages
 import org.scala.tools.eclipse.search.searching.Confidence
 import org.scala.tools.eclipse.search.Util
+import scala.tools.eclipse.InteractiveCompilationUnit
+import org.scala.tools.eclipse.search.searching.Certain
+import org.scala.tools.eclipse.search.searching.Uncertain
+
+/**
+ * Tree used to group search results
+ */
+trait SearchResultNode
+case class ProjectNode(name: String, hits: Int, files: Seq[FileNode]) extends SearchResultNode
+case class FileNode(name: String, hits: Int, lines: Seq[LineNode]) extends SearchResultNode
+case class LineNode(hit: Confidence[Hit]) extends SearchResultNode
+
 
 /**
  * Represents the result of executing a search query against Scala
@@ -48,12 +60,34 @@ class SearchResult(query: ISearchQuery) extends AbstractTextSearchResult {
    */
   def getTooltip(): String = query.getLabel
 
-  def resultsGroupedByFile: Map[String, Array[Confidence[Hit]]] = {
+  def projectNodes: Seq[ProjectNode] = {
     // TODO: Cache this, for speed improvements
+
+    type Hits = Seq[Confidence[Hit]]
+
+    def byProjectName(hits: Hits) = hits groupBy { hit =>
+      hit.value.cu.scalaProject.underlying.getName
+    }
+
+    def byFileName(hits: Hits) = hits groupBy { hit =>
+      hit.value.cu.workspaceFile.getName
+    }
+
+    def mkLineNodes(hits: Hits): Seq[LineNode] = hits map LineNode.apply
+
+    def mkFileNodes(hits: Hits): Seq[FileNode] = (byFileName(hits) map {
+      case ((fileName: String, fileHits: Hits)) =>
+          FileNode(fileName, fileHits.size, mkLineNodes(fileHits))
+    }).toSeq
+
+    def mkProjectNodes(hits: Hits): Seq[ProjectNode] =
+      (byProjectName(hits) map { case ((name: String, projectHits: Hits)) =>
+        ProjectNode(name, projectHits.size, mkFileNodes(projectHits))
+      }).toSeq
+
     val res = this.getElements.map(_.asInstanceOf[Confidence[Hit]])
 
-    res.filter( x => Util.getWorkspaceFile(x.value.cu).isDefined)
-       .groupBy(_.value.cu.workspaceFile.getProjectRelativePath().toOSString)
+    mkProjectNodes(res)
   }
 
 }
