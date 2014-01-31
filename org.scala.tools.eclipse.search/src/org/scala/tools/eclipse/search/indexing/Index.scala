@@ -309,7 +309,7 @@ trait Index extends HasLogger {
     persist(PATH, o.file.workspaceFile.getProjectRelativePath().toPortableString())
     persist(OFFSET, o.offset.toString)
     persist(OCCURRENCE_KIND, o.occurrenceKind.toString)
-    persist(LINE_CONTENT, o.lineContent.toString)
+    persist(LINE_CONTENT, o.lineContent)
     persist(IS_IN_SUPER_POSITION, o.isInSuperPosition.toString)
     persist(PROJECT_NAME, project.getName)
 
