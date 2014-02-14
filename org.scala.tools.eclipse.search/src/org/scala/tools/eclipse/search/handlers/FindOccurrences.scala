@@ -1,7 +1,7 @@
 package org.scala.tools.eclipse.search
 package handlers
 
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.eclipse.core.commands.AbstractHandler
 import org.eclipse.core.commands.ExecutionEvent
 import org.eclipse.core.runtime.IProgressMonitor
@@ -22,16 +22,16 @@ import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 import org.scala.tools.eclipse.search.ui.SearchResult
 import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler
 import org.scala.tools.eclipse.search.indexing.SearchFailure
-import scala.tools.eclipse.util.Utils._
-import scala.tools.eclipse.ScalaSourceFileEditor
+import org.scalaide.util.internal.Utils._
+import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Uncertain
-import scala.tools.eclipse.javaelements.ScalaSourceFile
+import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scala.tools.eclipse.search.searching.Confidence
 import org.eclipse.search.ui.text.Match
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.core.internal.project.ScalaProject
 import org.scala.tools.eclipse.search.searching.ProjectFinder
-import scala.tools.eclipse.ScalaPlugin
+import org.scalaide.core.ScalaPlugin
 import org.scala.tools.eclipse.search.searching.Scope
 
 class FindOccurrences

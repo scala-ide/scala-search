@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search.searching
 
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.core.internal.project.ScalaProject
 
 /**
  * Represents the scope that should be used when performing a search.

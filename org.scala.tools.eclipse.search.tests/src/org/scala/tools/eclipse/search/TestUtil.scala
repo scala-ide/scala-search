@@ -13,8 +13,8 @@ import org.mockito.ArgumentMatcher
 import org.eclipse.core.resources.IFile
 import org.eclipse.core.runtime.IPath
 import java.util.concurrent.TimeUnit
-import scala.tools.eclipse.ScalaProject
-import scala.tools.eclipse.ScalaPlugin
+import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.ScalaPlugin
 import org.eclipse.core.runtime.Path
 
 trait TestUtil {

@@ -2,7 +2,7 @@ package org.scala.tools.eclipse.search.ui
 
 import org.scala.tools.eclipse.search.searching.Hit
 import org.eclipse.jface.viewers.Viewer
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.eclipse.jface.viewers.ITreeContentProvider
 import org.eclipse.jface.viewers.AbstractTreeViewer
 

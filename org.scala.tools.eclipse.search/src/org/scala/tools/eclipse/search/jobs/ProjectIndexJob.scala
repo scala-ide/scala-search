@@ -2,8 +2,8 @@ package org.scala.tools.eclipse.search.jobs
 
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
-import scala.tools.eclipse.ScalaProject
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.logging.HasLogger
 import org.eclipse.core.resources.IFile
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.resources.WorkspaceJob

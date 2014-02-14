@@ -1,8 +1,8 @@
 package org.scala.tools.eclipse.search
 
 import scala.collection.mutable
-import scala.tools.eclipse.logging.HasLogger
-import scala.tools.eclipse.ScalaPlugin
+import org.scalaide.logging.HasLogger
+import org.scalaide.core.ScalaPlugin
 
 import org.eclipse.core.resources.IProject
 import org.scala.tools.eclipse.search.indexing.Index

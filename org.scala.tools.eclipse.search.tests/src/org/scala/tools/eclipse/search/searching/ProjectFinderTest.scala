@@ -4,10 +4,10 @@ import org.junit.Assert._
 import org.junit.Test
 import org.scala.tools.eclipse.search.TestUtil
 import org.eclipse.core.resources.ResourcesPlugin
-import scala.tools.eclipse.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.SDTTestUtils
 import org.junit.Before
 import org.eclipse.core.runtime.NullProgressMonitor
-import scala.tools.eclipse.testsetup.SDTTestUtils
 import org.scala.tools.eclipse.search.ProjectChangeObserver
 import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IProject

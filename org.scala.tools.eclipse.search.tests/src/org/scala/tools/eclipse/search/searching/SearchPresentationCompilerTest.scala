@@ -1,7 +1,7 @@
 package org.scala.tools.eclipse.search.searching
 
-import scala.tools.eclipse.testsetup.SDTTestUtils
-import scala.tools.eclipse.TestUtil._
+import org.scalaide.core.testsetup.SDTTestUtils
+import org.scalaide.core.TestUtil._
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before

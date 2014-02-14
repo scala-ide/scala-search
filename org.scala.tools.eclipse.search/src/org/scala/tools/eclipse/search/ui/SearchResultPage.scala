@@ -2,9 +2,9 @@ package org.scala.tools.eclipse.search
 package ui
 
 import scala.reflect.runtime.universe
-import scala.tools.eclipse.ScalaSourceFileEditor
-import scala.tools.eclipse.logging.HasLogger
-import scala.tools.eclipse.util.Utils._
+import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
+import org.scalaide.logging.HasLogger
+import org.scalaide.util.internal.Utils._
 
 import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.jface.viewers.IStructuredSelection

@@ -7,10 +7,10 @@ import org.eclipse.search.ui.text.IEditorMatchAdapter
 import org.eclipse.search.ui.text.IFileMatchAdapter
 import org.scala.tools.eclipse.search.searching.Hit
 import org.eclipse.search.ui.text.Match
-import scala.tools.eclipse.ScalaImages
+import org.scalaide.ui.internal.ScalaImages
 import org.scala.tools.eclipse.search.searching.Confidence
 import org.scala.tools.eclipse.search.Util
-import scala.tools.eclipse.InteractiveCompilationUnit
+import org.scalaide.core.compiler.InteractiveCompilationUnit
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Uncertain
 

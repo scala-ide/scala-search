@@ -7,7 +7,7 @@ import org.eclipse.search.ui.ISearchPageContainer
 import org.eclipse.swt.SWT
 import org.eclipse.swt.layout.GridLayout
 import org.eclipse.swt.widgets.Label
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.eclipse.swt.layout.GridData
 import org.eclipse.jface.dialogs.Dialog
 import org.eclipse.swt.widgets.Control

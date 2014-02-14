@@ -1,7 +1,7 @@
 package org.scala.tools.eclipse.search.ui
 
-import scala.tools.eclipse.ScalaImages
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.ui.internal.ScalaImages
+import org.scalaide.logging.HasLogger
 
 import org.eclipse.jface.resource.JFaceResources
 import org.eclipse.jface.viewers.StyledCellLabelProvider

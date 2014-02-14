@@ -1,7 +1,7 @@
 package org.scala.tools.eclipse.search.searching
 
-import scala.tools.eclipse.javaelements.ScalaCompilationUnit
-import scala.tools.eclipse.EclipseUserSimulator
+import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
+import org.scalaide.core.EclipseUserSimulator
 import org.eclipse.core.runtime.NullProgressMonitor
 import org.junit.Assert._
 import org.eclipse.jdt.core.JavaCore

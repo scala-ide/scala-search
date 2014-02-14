@@ -4,7 +4,7 @@ package ui
 import org.scala.tools.eclipse.search.ErrorReporter
 import org.eclipse.jface.dialogs.MessageDialog
 import org.eclipse.ui.PlatformUI
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 
 /**
  * Uses Eclipse MessageDialog to report errors

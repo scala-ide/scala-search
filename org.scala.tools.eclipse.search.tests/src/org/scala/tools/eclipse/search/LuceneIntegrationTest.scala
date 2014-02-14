@@ -11,7 +11,7 @@ import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.util.Version
 import org.junit.Assert._
 import org.junit.Test
-import scala.tools.eclipse.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.TestProjectSetup
 
 class LuceneIntegrationTest {
 
