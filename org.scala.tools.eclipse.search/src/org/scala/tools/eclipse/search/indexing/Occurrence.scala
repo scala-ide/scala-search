@@ -1,8 +1,8 @@
 package org.scala.tools.eclipse.search.indexing
 
-import scala.tools.eclipse.javaelements.ScalaSourceFile
+import org.scalaide.core.internal.jdt.model.ScalaSourceFile
+import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
 import org.scala.tools.eclipse.search.searching.Hit
-import scala.tools.eclipse.javaelements.ScalaCompilationUnit
 import org.scala.tools.eclipse.search.searching.Hit
 import org.scala.tools.eclipse.search.Util
 

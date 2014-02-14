@@ -12,17 +12,17 @@ import org.eclipse.swt.widgets.Label
 import org.eclipse.jface.viewers.TreeViewer
 import org.eclipse.jface.viewers.Viewer
 import org.eclipse.jface.viewers.StyledCellLabelProvider
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.eclipse.jface.viewers.IDoubleClickListener
 import org.eclipse.jface.viewers.DoubleClickEvent
 import org.eclipse.jface.viewers.IStructuredSelection
 import org.scala.tools.eclipse.search.searching.EvaluatedNode
-import scala.tools.eclipse.util.Utils._
+import org.scalaide.util.internal.Utils._
 import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
-import scala.tools.eclipse.ScalaSourceFileEditor
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
+import org.scalaide.core.internal.project.ScalaProject
 import org.scala.tools.eclipse.search.searching.Scope
 import org.scala.tools.eclipse.search.searching.Certain
 

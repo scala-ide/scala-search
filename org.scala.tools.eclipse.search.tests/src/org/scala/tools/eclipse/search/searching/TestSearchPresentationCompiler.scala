@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search.searching
 
-import scala.tools.eclipse.ScalaPresentationCompiler
+import org.scalaide.core.compiler.ScalaPresentationCompiler
 
 /**
  * Some extra methods that are convenient for the test code.

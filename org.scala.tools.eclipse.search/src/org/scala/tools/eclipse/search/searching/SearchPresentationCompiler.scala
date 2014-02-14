@@ -4,9 +4,9 @@ package searching
 import scala.reflect.internal.util.OffsetPosition
 import scala.reflect.internal.util.RangePosition
 import scala.reflect.internal.util.SourceFile
-import scala.tools.eclipse.ScalaPresentationCompiler
-import scala.tools.eclipse.javaelements.ScalaCompilationUnit
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.core.compiler.ScalaPresentationCompiler
+import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
+import org.scalaide.logging.HasLogger
 import scala.tools.nsc.interactive.Response
 
 import org.scala.tools.eclipse.search.Entity

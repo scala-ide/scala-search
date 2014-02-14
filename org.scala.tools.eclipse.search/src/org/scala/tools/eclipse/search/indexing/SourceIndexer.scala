@@ -1,8 +1,8 @@
 package org.scala.tools.eclipse.search.indexing
 
-import scala.tools.eclipse.ScalaProject
-import scala.tools.eclipse.javaelements.ScalaSourceFile
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.internal.jdt.model.ScalaSourceFile
+import org.scalaide.logging.HasLogger
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try

@@ -4,7 +4,7 @@ import java.io.File
 import java.io.IOException
 import scala.Array.fallbackCanBuildFrom
 import scala.collection.JavaConverters.asJavaIterableConverter
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import scala.util.Try
 import scala.util.control.{Exception => Ex}
 import scala.util.control.Exception.Catch
@@ -34,7 +34,7 @@ import LuceneFields.PATH
 import LuceneFields.PROJECT_NAME
 import LuceneFields.WORD
 import org.eclipse.core.resources.IFile
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.core.internal.project.ScalaProject
 import scala.util.Success
 import scala.util.Failure
 import scala.collection.mutable.ArraySeq

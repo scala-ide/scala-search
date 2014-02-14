@@ -1,9 +1,9 @@
 package org.scala.tools.eclipse.search.jobs
 
 import java.io.IOException
-import scala.tools.eclipse.testsetup.SDTTestUtils
-import scala.tools.eclipse.testsetup.SDTTestUtils.waitUntil
-import scala.tools.eclipse.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.SDTTestUtils
+import org.scalaide.core.testsetup.SDTTestUtils.waitUntil
+import org.scalaide.core.testsetup.TestProjectSetup
 import scala.util.Failure
 import scala.util.Success
 import org.apache.lucene.index.CorruptIndexException
@@ -25,10 +25,9 @@ import org.eclipse.core.runtime.jobs.IJobChangeEvent
 import ProjectIndexJobTest.mocks
 import org.scala.tools.eclipse.search.TestUtil
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
-import scala.tools.eclipse.testsetup.SDTTestUtils
 import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.JobChangeAdapter
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.core.internal.project.ScalaProject
 
 class ProjectIndexJobTest {
 

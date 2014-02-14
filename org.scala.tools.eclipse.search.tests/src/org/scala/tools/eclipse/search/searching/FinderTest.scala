@@ -1,19 +1,19 @@
 package org.scala.tools.eclipse.search.searching
 
-import scala.tools.eclipse.testsetup.SDTTestUtils
+import org.scalaide.core.testsetup.SDTTestUtils
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.TestUtil
 import org.junit.Test
 import org.junit.Assert._
-import scala.tools.eclipse.javaelements.ScalaCompilationUnit
-import scala.tools.eclipse.EclipseUserSimulator
+import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
+import org.scalaide.core.EclipseUserSimulator
 import org.eclipse.core.runtime.NullProgressMonitor
 import java.util.concurrent.CountDownLatch
 import org.scala.tools.eclipse.search.FileChangeObserver
 import org.scala.tools.eclipse.search.LogErrorReporter
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.core.internal.project.ScalaProject
 import org.apache.lucene.search.IndexSearcher
 import scala.util.Try
 import scala.util.Failure
@@ -21,7 +21,7 @@ import java.io.IOException
 import org.junit.After
 import org.junit.Before
 import org.scala.tools.eclipse.search.TypeEntity
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.junit.Ignore
 
 class FinderTest {

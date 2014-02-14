@@ -7,7 +7,7 @@ import org.eclipse.search.ui.text.Match
 import org.scala.tools.eclipse.search.searching.Location
 import org.eclipse.ui.IFileEditorInput
 import org.scala.tools.eclipse.search.searching.Hit
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.scala.tools.eclipse.search.searching.Confidence
 
 class EditorMatchAdapter extends IEditorMatchAdapter with HasLogger {

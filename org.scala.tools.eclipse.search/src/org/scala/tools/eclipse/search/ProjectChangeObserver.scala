@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search
 
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.eclipse.core.resources.IProject
 import org.eclipse.core.resources.IResourceChangeEvent
 import org.eclipse.core.resources.IResourceChangeListener
@@ -8,8 +8,8 @@ import org.eclipse.core.resources.IResourceDelta
 import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.resources.IResource
-import scala.tools.eclipse.ScalaPlugin
-import scala.tools.eclipse.util.Utils._
+import org.scalaide.core.ScalaPlugin
+import org.scalaide.util.internal.Utils._
 
 
 /**

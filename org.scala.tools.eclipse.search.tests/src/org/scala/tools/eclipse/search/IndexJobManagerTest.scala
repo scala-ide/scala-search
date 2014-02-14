@@ -1,18 +1,18 @@
 package org.scala.tools.eclipse.search
 
-import scala.tools.eclipse.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.SDTTestUtils
 import org.junit.{ Test, Before, After }
 import org.junit.Assert._
 import org.eclipse.core.runtime.NullProgressMonitor
 import java.io.File
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
-import scala.tools.eclipse.testsetup.SDTTestUtils
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.runtime.Path
 import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IProject
-import scala.tools.eclipse.ScalaPlugin
+import org.scalaide.core.ScalaPlugin
 
 class IndexJobManagerTest {
 

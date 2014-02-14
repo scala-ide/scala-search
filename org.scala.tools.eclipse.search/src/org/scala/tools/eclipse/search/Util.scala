@@ -1,8 +1,8 @@
 package org.scala.tools.eclipse.search
 
-import scala.tools.eclipse.InteractiveCompilationUnit
-import scala.tools.eclipse.javaelements.ScalaSourceFile
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.core.compiler.InteractiveCompilationUnit
+import org.scalaide.core.internal.jdt.model.ScalaSourceFile
+import org.scalaide.logging.HasLogger
 import org.eclipse.core.resources.IFile
 import scala.reflect.io.AbstractFile
 import org.eclipse.core.resources.ResourcesPlugin

@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search
 
-import scala.tools.eclipse.ScalaSourceFileEditor
+import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.eclipse.jface.text.ITextSelection
 import org.eclipse.ui.IEditorPart
 

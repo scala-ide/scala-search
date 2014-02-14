@@ -4,10 +4,10 @@ package ui
 import org.eclipse.jface.viewers.StyledCellLabelProvider
 import org.eclipse.jface.viewers.ViewerCell
 import org.eclipse.jface.viewers.StyledString
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Uncertain
-import scala.tools.eclipse.ScalaImages
+import org.scalaide.ui.internal.ScalaImages
 import org.scala.tools.eclipse.search.searching.LeafNode
 import org.scala.tools.eclipse.search.searching.EvaluatingNode
 import org.scala.tools.eclipse.search.searching.EvaluatedNode

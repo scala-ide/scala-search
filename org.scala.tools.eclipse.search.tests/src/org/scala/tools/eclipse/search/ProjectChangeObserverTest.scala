@@ -1,15 +1,15 @@
 
 package org.scala.tools.eclipse.search
 
-import scala.tools.eclipse.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.SDTTestUtils
+import org.scalaide.core.testsetup.SDTTestUtils.waitUntil
 import org.junit.Test
 import org.junit.Assert._
 import org.eclipse.core.runtime.NullProgressMonitor
 import org.eclipse.core.resources.ResourcesPlugin
-import scala.tools.eclipse.testsetup.SDTTestUtils
-import scala.tools.eclipse.testsetup.SDTTestUtils.waitUntil
 import java.util.concurrent.CountDownLatch
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.core.internal.project.ScalaProject
 import org.eclipse.core.resources.IProject
 
 class ProjectChangeObserverTest {

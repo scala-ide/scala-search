@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search
 
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 
 import org.eclipse.ui.IStartup
 
