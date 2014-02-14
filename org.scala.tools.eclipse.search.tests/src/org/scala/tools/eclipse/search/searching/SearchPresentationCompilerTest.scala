@@ -1,7 +1,7 @@
 package org.scala.tools.eclipse.search.searching
 
 import scala.tools.eclipse.testsetup.SDTTestUtils
-import scala.tools.eclipse.TestUtil._
+import scala.tools.eclipse.ScalaPlugin
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -1109,6 +1109,10 @@ class SearchPresentationCompilerTest {
     observer1.stop
     observer2.stop
     observer3.stop
+  }
+
+  private def installedScalaVersionGreaterOrEqualsTo(version: Version): Boolean = {
+    ScalaPlugin.plugin.scalaLibBundle.getVersion().compareTo(version) >= 0
   }
 }
 
