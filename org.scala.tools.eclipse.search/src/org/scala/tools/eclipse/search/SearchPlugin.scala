@@ -2,13 +2,13 @@ package org.scala.tools.eclipse.search
 
 import scala.Array.canBuildFrom
 import scala.Option.option2Iterable
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.ui.plugin.AbstractUIPlugin
 import org.osgi.framework.BundleContext
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
-import scala.tools.eclipse.ScalaPlugin
+import org.scalaide.core.ScalaPlugin
 import org.scala.tools.eclipse.search.searching.Finder
 import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 

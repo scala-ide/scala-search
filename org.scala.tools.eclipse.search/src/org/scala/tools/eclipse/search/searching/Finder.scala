@@ -3,9 +3,9 @@ package searching
 
 import scala.Option.option2Iterable
 import scala.reflect.internal.util.SourceFile
-import scala.tools.eclipse.ScalaPlugin
-import scala.tools.eclipse.ScalaProject
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.logging.HasLogger
 
 import org.eclipse.core.runtime.IProgressMonitor
 import org.scala.tools.eclipse.search.Entity

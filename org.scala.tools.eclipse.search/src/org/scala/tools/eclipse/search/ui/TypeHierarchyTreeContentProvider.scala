@@ -2,8 +2,8 @@ package org.scala.tools.eclipse.search
 package ui
 
 import scala.collection.mutable
-import scala.tools.eclipse.logging.HasLogger
-import scala.tools.eclipse.util.Utils._
+import org.scalaide.logging.HasLogger
+import org.scalaide.util.internal.Utils._
 import org.eclipse.core.runtime.IProgressMonitor
 import org.eclipse.core.runtime.IStatus
 import org.eclipse.core.runtime.Status
@@ -20,7 +20,7 @@ import org.scala.tools.eclipse.search.searching.TypeHierarchyNode
 import org.scala.tools.eclipse.search.searching.EvaluatedNode
 import org.scala.tools.eclipse.search.searching.EvaluatingNode
 import org.scala.tools.eclipse.search.searching.LeafNode
-import scala.tools.eclipse.ScalaProject
+import org.scalaide.core.internal.project.ScalaProject
 import org.scala.tools.eclipse.search.searching.Scope
 
 /**

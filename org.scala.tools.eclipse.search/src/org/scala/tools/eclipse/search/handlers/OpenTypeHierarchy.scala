@@ -1,7 +1,7 @@
 package org.scala.tools.eclipse.search
 package handlers
 
-import scala.tools.eclipse.logging.HasLogger
+import org.scalaide.logging.HasLogger
 import org.eclipse.core.commands.AbstractHandler
 import org.eclipse.core.commands.ExecutionEvent
 import org.eclipse.ui.PlatformUI
@@ -10,9 +10,9 @@ import org.scala.tools.eclipse.search.SearchPlugin
 import org.scala.tools.eclipse.search.searching.Finder
 import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 import org.scala.tools.eclipse.search.ui.TypeHierarchyView
-import scala.tools.eclipse.util.Utils._
+import org.scalaide.util.internal.Utils._
 import org.eclipse.ui.handlers.HandlerUtil
-import scala.tools.eclipse.ScalaSourceFileEditor
+import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.Location
 import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler
 import org.eclipse.core.runtime.jobs.Job
@@ -21,7 +21,7 @@ import org.eclipse.core.runtime.IStatus
 import org.eclipse.core.runtime.Status
 import org.eclipse.swt.widgets.Display
 import org.scala.tools.eclipse.search.searching.ProjectFinder
-import scala.tools.eclipse.ScalaPlugin
+import org.scalaide.core.ScalaPlugin
 import org.scala.tools.eclipse.search.searching.Scope
 
 class OpenTypeHierarchy

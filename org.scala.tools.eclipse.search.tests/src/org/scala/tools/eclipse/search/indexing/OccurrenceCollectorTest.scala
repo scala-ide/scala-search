@@ -3,12 +3,12 @@ package org.scala.tools.eclipse.search.indexing
 import org.junit.Test
 import org.junit.After
 import org.junit.Assert._
-import scala.tools.eclipse.testsetup.TestProjectSetup
+import org.scalaide.core.testsetup.TestProjectSetup
 import scala.util.Failure
 import scala.util.Success
 import org.scala.tools.eclipse.search.TestUtil
 import org.scala.tools.eclipse.search.searching.SourceCreator
-import scala.tools.eclipse.javaelements.ScalaSourceFile
+import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scala.tools.eclipse.search.Util
 
 /**
