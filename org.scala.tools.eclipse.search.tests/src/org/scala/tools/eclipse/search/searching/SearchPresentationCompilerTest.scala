@@ -1,7 +1,6 @@
 package org.scala.tools.eclipse.search.searching
 
 import scala.tools.eclipse.testsetup.SDTTestUtils
-import scala.tools.eclipse.TestUtil._
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -13,6 +12,7 @@ import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IFile
 import org.junit.Ignore
 import org.osgi.framework.Version
+import scala.tools.eclipse.ScalaPlugin
 
 class SearchPresentationCompilerTest {
 
@@ -233,6 +233,9 @@ class SearchPresentationCompilerTest {
       }
     """} expectedTypeError
   }
+
+  private def installedScalaVersionGreaterOrEqualsTo(version: Version) =
+    ScalaPlugin.plugin.scalaLibBundle.getVersion().compareTo(version) >= 0
 
   @Test @Ignore("Flaky in 2.11")
   def notTypeableIfAskedForLocationWithTypeErrorClasses {
