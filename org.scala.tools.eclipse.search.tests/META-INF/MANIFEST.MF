@@ -6,7 +6,7 @@ Bundle-Version: 0.2.2.qualifier
 Bundle-Vendor: Scala IDE
 Fragment-Host: org.scala.tools.eclipse.search
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
-Require-Bundle: org.scala-lang.scala-library,
+Require-Bundle: org.scala-ide.scala.library,
  org.eclipse.equinox.weaving.aspectj,
  org.junit;bundle-version="4.5.0",
  org.scala-ide.sdt.core,
