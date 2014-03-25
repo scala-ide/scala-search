@@ -55,7 +55,7 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
     loc.cu.withSourceFile { (sf, pc) =>
       val spc = new SearchPresentationCompiler(pc)
       spc.entityAt(loc)
-    } getOrElse (Left(CantLoadFile))
+    }(Left(CantLoadFile))
   }
 
   /**
@@ -92,15 +92,19 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
     def getTypeEntity(hit: Hit): Option[TypeEntity] = {
       hit.cu.withSourceFile { (sf,pc) =>
         val spc = new SearchPresentationCompiler(pc)
-        val maybeEntity = spc.declarationContaining(Location(hit.cu, hit.offset)).right.toOption.flatten
-        //TODO: Report error
-        maybeEntity match {
-          case Some(x: TypeEntity) if x.name != entity.name && !alreadyReportedNames.contains(x.name) =>
-            alreadyReportedNames.append(x.name)
-            x
-          case None => null
-        }
-      }
+        for {
+          declEntity <- spc.declarationContaining(Location(hit.cu, hit.offset)).right.toOption.flatten //TODO: Report error
+          typeEntity <- declEntity match {
+            // A type can reference it-self in it's super-types so we have this
+            // guard to make sure that it doesn't list itself as a sub-type.
+            // See test 'FinderTest.findAllSubclassesIgnoresTypeConstructorArguments'
+            case x: TypeEntity if x.name != entity.name && !alreadyReportedNames.contains(x.name) =>
+              alreadyReportedNames.append(x.name)
+              Some(x)
+            case _ => None
+          }
+        } yield typeEntity
+      }(None)
     }
 
     // Given a hit where the `entity` is used in a super-type position
