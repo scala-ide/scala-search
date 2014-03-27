@@ -3,7 +3,7 @@
   <parent>
     <groupId>org.scala.tools.eclipse</groupId>
     <artifactId>org.scala.tools.eclipse.search.build</artifactId>
-    <version>0.2.2-SNAPSHOT</version>
+    <version>0.2.3-SNAPSHOT</version>
   </parent>
   <artifactId>org.scala.tools.eclipse.search.tests</artifactId>
   <packaging>eclipse-test-plugin</packaging>
