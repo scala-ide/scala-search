@@ -3,7 +3,7 @@ package searching
 
 import scala.Option.option2Iterable
 import scala.reflect.internal.util.SourceFile
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 import org.scalaide.core.api.ScalaProject
 import org.scalaide.logging.HasLogger
 

@@ -20,7 +20,7 @@ import org.eclipse.core.runtime.IStatus
 import org.eclipse.core.runtime.Status
 import org.eclipse.swt.widgets.Display
 import org.scala.tools.eclipse.search.searching.ProjectFinder
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 import org.scala.tools.eclipse.search.searching.Scope
 
 class OpenTypeHierarchy
@@ -40,7 +40,7 @@ class OpenTypeHierarchy
     } {
       // Get the relevant scope to search for sub-types in.
       val projects = ProjectFinder.projectClosure(scalaEditor.getInteractiveCompilationUnit.scalaProject.underlying)
-      val scope = Scope(projects.map(ScalaPlugin.plugin.asScalaProject(_)).flatten)
+      val scope = Scope(projects.map(IScalaPlugin().asScalaProject(_)).flatten)
       // Get the entity of the given location and set it as the root of the type-hierarchy.
       val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
       // Find the entity and open the view if appropriate

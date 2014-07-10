@@ -12,7 +12,7 @@ import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.runtime.Path
 import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IProject
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 
 class IndexJobManagerTest {
 

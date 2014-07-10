@@ -12,7 +12,7 @@ import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IFile
 import org.junit.Ignore
 import org.osgi.framework.Version
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 import scala.tools.nsc.settings.ScalaVersion
 
 class SearchPresentationCompilerTest {
@@ -237,7 +237,7 @@ class SearchPresentationCompilerTest {
 
   @Test @Ignore("Flaky in 2.11")
   def notTypeableIfAskedForLocationWithTypeErrorClasses {
-    if (ScalaPlugin.plugin.scalaVer >= ScalaVersion("2.11.0")) {
+    if (IScalaPlugin().scalaVersion >= ScalaVersion("2.11.0")) {
       val sourceA = project.create("NotTypeableClassA.scala") {
         """
       class A {

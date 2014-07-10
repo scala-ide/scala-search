@@ -8,7 +8,7 @@ import org.eclipse.ui.plugin.AbstractUIPlugin
 import org.osgi.framework.BundleContext
 import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 import org.scala.tools.eclipse.search.searching.Finder
 import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 
@@ -44,7 +44,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
     val root = ResourcesPlugin.getWorkspace().getRoot()
 
     root.getProjects().map(Option.apply).flatten.foreach { proj =>
-      ScalaPlugin.plugin.asScalaProject(proj).foreach { sp =>
+      IScalaPlugin().asScalaProject(proj).foreach { sp =>
         indexManager.startIndexing(sp.underlying)
       }
     }
