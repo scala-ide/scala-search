@@ -24,6 +24,21 @@ class IndexJobManagerTest {
 
   @Before
   def setup {
+
+    // re-open the projec if needed
+    if (!project.underlying.isOpen) {
+      val latch = new CountDownLatch(1)
+
+      val observer = ProjectChangeObserver(onOpen = (p: IProject) => {
+        latch.countDown()
+      })
+
+      project.underlying.open(monitor)
+      latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
+
+      assertTrue("unable to reopen the project before test", project.underlying.isOpen)
+    }
+
     val index = new Index {
       override val base = new Path(mkPath("target", "index-job-manager-test"))
     }

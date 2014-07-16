@@ -1,7 +1,6 @@
 package org.scala.tools.eclipse.search.searching
 
 import org.scalaide.core.testsetup.SDTTestUtils
-import org.scalaide.core.TestUtil._
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -13,6 +12,8 @@ import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IFile
 import org.junit.Ignore
 import org.osgi.framework.Version
+import org.scalaide.core.ScalaPlugin
+import scala.tools.nsc.settings.ScalaVersion
 
 class SearchPresentationCompilerTest {
 
@@ -236,7 +237,7 @@ class SearchPresentationCompilerTest {
 
   @Test @Ignore("Flaky in 2.11")
   def notTypeableIfAskedForLocationWithTypeErrorClasses {
-    if (installedScalaVersionGreaterOrEqualsTo(new Version(2, 11, 0))) {
+    if (ScalaPlugin.plugin.scalaVer >= ScalaVersion("2.11.0")) {
       val sourceA = project.create("NotTypeableClassA.scala") {
         """
       class A {
