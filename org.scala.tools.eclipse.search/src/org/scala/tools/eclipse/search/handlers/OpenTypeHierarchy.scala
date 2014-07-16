@@ -14,7 +14,6 @@ import org.scalaide.util.internal.Utils._
 import org.eclipse.ui.handlers.HandlerUtil
 import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.Location
-import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler
 import org.eclipse.core.runtime.jobs.Job
 import org.eclipse.core.runtime.IProgressMonitor
 import org.eclipse.core.runtime.IStatus

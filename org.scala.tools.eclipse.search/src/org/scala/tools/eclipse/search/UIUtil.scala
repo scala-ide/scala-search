@@ -2,7 +2,6 @@ package org.scala.tools.eclipse.search
 
 import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.eclipse.jface.text.ITextSelection
-import org.eclipse.ui.IEditorPart
 
 object UIUtil {
   def getSelection(editor: ScalaSourceFileEditor): Option[ITextSelection] = {

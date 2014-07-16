@@ -5,7 +5,6 @@ import org.scalaide.logging.HasLogger
 import org.scalaide.core.ScalaPlugin
 
 import org.eclipse.core.resources.IProject
-import org.scala.tools.eclipse.search.indexing.Index
 
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import org.scala.tools.eclipse.search.jobs.ProjectIndexJob
@@ -14,7 +13,7 @@ import org.scala.tools.eclipse.search.jobs.ProjectIndexJob
  * Responsible for keeping track of the various indexing jobs. It uses
  * ProjectChangeObserver to keep track of Resource Events related to
  * projects.
- * 
+ *
  * @note This trait is thread-safe.
  */
 class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
@@ -34,18 +33,18 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
   /** Keeps track of indexing job for each Scala project.
    * @note Guarded by `lock`.
    */
-  private val indexingJobs: mutable.Map[IProject, ProjectIndexJob] = 
+  private val indexingJobs: mutable.Map[IProject, ProjectIndexJob] =
     new mutable.HashMap[IProject, ProjectIndexJob]
 
   override def startup() = lock.synchronized {
-    if(active) 
+    if(active)
       throw new ScalaSearchException("Index manager was already started.")
 
-    // Important to do this '''before''' registering the listener. 
+    // Important to do this '''before''' registering the listener.
     active = true
 
-    /* Mind that the listener is initialized here (and not in the constructor) to prevent the 
-     * `this` reference to escape before it is properly constructed. Failing to do so can lead 
+    /* Mind that the listener is initialized here (and not in the constructor) to prevent the
+     * `this` reference to escape before it is properly constructed. Failing to do so can lead
      * to concurrency hazards.
      */
     observer = ProjectChangeObserver(

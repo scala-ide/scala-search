@@ -227,7 +227,6 @@ class IndexTest {
     // been recorded in files that no longer exists
     val project = Project("DontShowOccurrenceInFilesThatNoLongerExist")
     val index   = TestIndex("DontShowOccurrenceInFilesThatNoLongerExist")
-    val indexer = new SourceIndexer(index)
 
     val source = project.create("DoesNotExist.scala")("")
     val path = source.unit.workspaceFile.getProjectRelativePath()
