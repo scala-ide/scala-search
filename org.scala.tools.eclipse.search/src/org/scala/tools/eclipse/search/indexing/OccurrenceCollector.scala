@@ -1,14 +1,12 @@
 package org.scala.tools.eclipse.search.indexing
 
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
 import org.scalaide.core.compiler.ScalaPresentationCompiler
-import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
 import org.scalaide.logging.HasLogger
-import scala.util._
-import scala.reflect.internal.util.Position
-import scala.reflect.internal.util.SourceFile
-import scala.reflect.internal.util.NoSourceFile
-import scala.reflect.internal.Chars
 
 /**
  * Used to parse and traverse the parse tree of a compilation unit finding
@@ -47,17 +45,6 @@ object OccurrenceCollector extends HasLogger {
     } else noFileError
   }
 
-  // TODO : remove once we have the fix to SI-8205 (Scala PR
-  // 3427)
-  @deprecated("This should be removed after PR 3247 is released", since="0.2.1")
-  private def altLineContent(p: Position): String = {
-    val (l,s) = (p.line, p.source)
-      if (l == 0 || p.source == NoSourceFile) "" else {
-        s.content drop s.lineToOffset(l-1) takeWhile (c => !Chars.isLineBreakChar(c)) mkString ""
-      }
-  }
-
-
   private def findOccurrences(pc: ScalaPresentationCompiler)
                              (file: ScalaCompilationUnit, tree: pc.Tree): Seq[Occurrence] = {
     import pc._
@@ -69,7 +56,7 @@ object OccurrenceCollector extends HasLogger {
       override def traverse(t: Tree) {
 
         // Avoid passing the same arguments all over.
-        def mkOccurrence = Occurrence(_: String, file, t.pos.point, _: OccurrenceKind, altLineContent(t.pos), isSuper)
+        def mkOccurrence = Occurrence(_: String, file, t.pos.point, _: OccurrenceKind, t.pos.lineContent, isSuper)
 
         t match {
 
