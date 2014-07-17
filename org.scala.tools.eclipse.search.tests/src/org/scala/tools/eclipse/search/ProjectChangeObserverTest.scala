@@ -1,20 +1,15 @@
 
 package org.scala.tools.eclipse.search
 
-import org.scalaide.core.testsetup.TestProjectSetup
-import org.scalaide.core.testsetup.SDTTestUtils
-import org.scalaide.core.testsetup.SDTTestUtils.waitUntil
-import org.junit.Test
-import org.junit.Assert._
-import org.eclipse.core.runtime.NullProgressMonitor
-import org.eclipse.core.resources.ResourcesPlugin
 import java.util.concurrent.CountDownLatch
-import org.scalaide.core.internal.project.ScalaProject
+
 import org.eclipse.core.resources.IProject
+import org.eclipse.core.runtime.NullProgressMonitor
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import org.scalaide.core.testsetup.SDTTestUtils
 
 class ProjectChangeObserverTest {
-
-  import SDTTestUtils._
   import ProjectChangeObserverTest._
 
   @Test def reactsToOpenEvents() {

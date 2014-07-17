@@ -32,7 +32,6 @@ import org.scalaide.core.internal.project.ScalaProject
 class ProjectIndexJobTest {
 
   import ProjectIndexJobTest._
-  import SDTTestUtils._
 
   @Test def whenStartingItShouldTriggerIndexing() {
     // When the job is started it should start indexing the existing
@@ -199,19 +198,19 @@ object ProjectIndexJobTest
     override val base: IPath = new Path(mkPath("target","project-index-job-test"))
   }
 
-  
+
   def mockedSuccessfullIndexerConfig = {
     val index = mock(classOf[TestIndex])
     when(index.isIndexable(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(true)
     when(index.removeOccurrencesFromFile(
         Matchers.argThat(mocks.args.anyInstance[IPath]),
         Matchers.argThat(mocks.args.anyInstance[ScalaProject]))).thenReturn(Success(()))
-    
+
     val indexer = mock(classOf[SourceIndexer])
     when(indexer.index).thenReturn(index)
     when(indexer.indexProject(project)).thenReturn(Success(()))
     when(indexer.indexIFile(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(Success(()))
-    
+
     indexer
   }
 
@@ -231,7 +230,7 @@ object ProjectIndexJobTest
     val index = mock(classOf[TestIndex])
     when(index.deleteIndex(project.underlying)).thenReturn(Success(true))
     when(index.indexExists(project.underlying)).thenReturn(false)
-    
+
     val indexer = mock(classOf[SourceIndexer])
     when(indexer.index).thenReturn(index)
     when(indexer.indexProject(project)).thenReturn(Failure(ex))

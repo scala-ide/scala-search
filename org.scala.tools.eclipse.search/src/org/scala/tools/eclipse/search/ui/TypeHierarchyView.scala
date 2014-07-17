@@ -104,15 +104,15 @@ class TypeHierarchyView extends ViewPart with HasLogger {
     // addInspectorView(parent)
   }
 
-  private def addInspectorView(parent: Composite): Unit = {
-    val inspectLabel = new Label(parent, SWT.NONE)
-    inspectLabel.setText("Inspector")
-    inspectLabel.setLayoutData(new GridData(GridData.GRAB_HORIZONTAL | GridData.HORIZONTAL_ALIGN_FILL))
-
-    val inspector = new TableViewer(parent,  SWT.H_SCROLL | SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.BORDER)
-    inspector.getControl().setEnabled(false)
-    configure(inspector)
-  }
+//  private def addInspectorView(parent: Composite): Unit = {
+//    val inspectLabel = new Label(parent, SWT.NONE)
+//    inspectLabel.setText("Inspector")
+//    inspectLabel.setLayoutData(new GridData(GridData.GRAB_HORIZONTAL | GridData.HORIZONTAL_ALIGN_FILL))
+//
+//    val inspector = new TableViewer(parent,  SWT.H_SCROLL | SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.BORDER)
+//    inspector.getControl().setEnabled(false)
+//    configure(inspector)
+//  }
 
   private def configure(viewer: Viewer): Unit = {
     val data = new GridData()

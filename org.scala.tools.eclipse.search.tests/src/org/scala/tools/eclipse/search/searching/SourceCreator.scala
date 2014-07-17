@@ -121,17 +121,15 @@ trait SourceCreator {
 
   class Project private (val name: String) {
 
-    import Project._
-
     private val adhocSimulator = new EclipseUserSimulator
-    private var _sources: Seq[ScalaCompilationUnit] = Nil
+    private val _sources: Seq[ScalaCompilationUnit] = Nil
 
     val scalaProject = adhocSimulator.createProjectInWorkspace(name, true)
 
     def source = _sources
 
     def addProjectsToClasspath(others: Project*): Unit = {
-      var entries = new scala.collection.mutable.ArrayBuffer[IClasspathEntry]()
+      val entries = new scala.collection.mutable.ArrayBuffer[IClasspathEntry]()
 
       others.foreach { other =>
         val sourceFolder = other.scalaProject.underlying.getFolder("/src");

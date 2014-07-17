@@ -19,7 +19,7 @@ object ProjectFinder {
       var all = (project +: refs(project)).toSet
 
       // Projects = Undirected Acyclic Graph -> DF Traversal
-      var missing: Stack[IProject] = Stack( all.toSeq :_* )
+      val missing: Stack[IProject] = Stack( all.toSeq :_* )
       while (!missing.isEmpty) {
         val p = missing.pop
         val news = refs(p).filter(!all.contains(_))

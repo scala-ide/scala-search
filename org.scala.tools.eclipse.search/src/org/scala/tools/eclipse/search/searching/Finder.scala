@@ -160,9 +160,4 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
     }
   }
 
-  private def comparatorErrMsg(location: Location, sf: SourceFile) =
-    s"Couldn't get comparator based on symbol at ${location.offset} in ${sf.file.path}"
-
-  private def symbolErrMsg(location: Location, sf: SourceFile) =
-    s"Couldn't get name of symbol at ${location.offset} in ${sf.file.path}"
 }

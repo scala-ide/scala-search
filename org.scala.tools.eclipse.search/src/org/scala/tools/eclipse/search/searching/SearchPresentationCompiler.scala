@@ -69,12 +69,12 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
 
     val loc = for {
       file <- Util.scalaSourceFileFromAbstractFile(symbol.sourceFile) onEmpty
-              logger.debug(s"Cound't add location to the entity as it wasn't possible " +
+              logger.debug("Cound't add location to the entity as it wasn't possible " +
                             "to get a ScalaSourceFile form symbol.sourceFile")
       loc  <- pc.locate(symbol, file) onEmpty
-              logger.debug(s"Cound't add location to the entity as it wasn't possible " +
+              logger.debug("Cound't add location to the entity as it wasn't possible " +
                             "to get the exact location of the symbol.")
-      (_, offset) = loc
+      val offset = loc._2
 
     } yield Location(file, offset)
 
@@ -154,13 +154,13 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
     }
 
     def namesForApply(symbol: pc.Symbol) = {
-      List(symbol.decodedName.toString, symbol.owner.decodedName.toString)
+      List(symbol.decodedName, symbol.owner.decodedName)
     }
 
     pc.askOption { () =>
       if (isValOrVar(symbol)) namesForValOrVars(symbol)
       else if (symbol.nameString == "apply") namesForApply(symbol)
-      else List(symbol.decodedName.toString)
+      else List(symbol.decodedName)
     }
   }
 

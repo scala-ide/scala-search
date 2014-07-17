@@ -53,7 +53,7 @@ object OccurrenceCollector extends HasLogger {
   private def altLineContent(p: Position): String = {
     val (l,s) = (p.line, p.source)
       if (l == 0 || p.source == NoSourceFile) "" else {
-        s.content drop s.lineToOffset(l-1) takeWhile (c => !Chars.isLineBreakChar(c.toChar)) mkString ""
+        s.content drop s.lineToOffset(l-1) takeWhile (c => !Chars.isLineBreakChar(c)) mkString ""
       }
   }
 

@@ -14,7 +14,6 @@ import org.eclipse.ui.handlers.HandlerUtil
 import org.scala.tools.eclipse.search.ErrorHandlingOption
 import org.scala.tools.eclipse.search.SearchPlugin
 import org.scala.tools.eclipse.search.UIUtil
-import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.searching.Finder
 import org.scala.tools.eclipse.search.searching.Location
 import org.scala.tools.eclipse.search.searching.Hit
@@ -61,7 +60,7 @@ class FindOccurrences
         } getOrElse(reporter.reportError("Couldn't recognize the enity of the selection"))
       }
     }
-    
+
     null // According to the Eclipse docs we have to return null.
   }
 

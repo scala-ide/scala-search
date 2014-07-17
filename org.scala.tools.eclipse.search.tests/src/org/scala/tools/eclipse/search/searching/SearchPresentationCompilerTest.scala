@@ -885,7 +885,7 @@ class SearchPresentationCompilerTest {
      // So we've already tested that it finds Object, but I had some
      // problems where it wouldn't list other types
      project.create("DirectSuperTypesWorksForTypesNotDefinedInProject.scala") {"""
-       trait StringOrdering extends |Ordering[String] 
+       trait StringOrdering extends |Ordering[String]
      """} expectedSupertypes("Object", "Comparator", "PartialOrdering", "Serializable")
 
    }

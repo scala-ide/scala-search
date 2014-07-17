@@ -1,12 +1,15 @@
 package org.scala.tools.eclipse.search
 
-import org.junit.Test
-import org.mockito.Mockito._
 import java.io.Closeable
-import org.junit.Assert._
-import scala.util.control.{ Exception => Ex }
 import java.io.IOException
+
 import scala.util.Try
+import scala.util.control.{Exception => Ex}
+
+import org.junit.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.when
 
 class UsingTest {
 

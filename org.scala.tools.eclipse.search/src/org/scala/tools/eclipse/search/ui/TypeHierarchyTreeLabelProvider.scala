@@ -21,7 +21,7 @@ import org.eclipse.jface.viewers.IDecoration
 /**
  * Used by the TypeHierarchyView to produce the labels that are shown in the super- and
  * sub-type tree viewers.
- * 
+ *
  * The type-hierarchy is represented using `TypeHierarchyNode` and they're produced in
  * `TypeHierarchyTreeContentProvider`.
  */
@@ -57,7 +57,6 @@ class TypeHierarchyTreeLabelProvider(leafLabel: String) extends StyledCellLabelP
         cell.setImage(ScalaImages.SCALA_TRAIT.createImage)
       case c @ Class(_, name) if c.isAbstract =>
         text.append(name)
-        val base = ScalaImages.SCALA_CLASS
         val overlay = JavaPluginImages.DESC_OVR_ABSTRACT_CLASS
         val imageDesc = new DecorationOverlayIcon(ScalaImages.SCALA_CLASS.createImage, overlay, IDecoration.TOP_LEFT)
         cell.setImage(imageDesc.createImage)

@@ -15,7 +15,6 @@ import org.scala.tools.eclipse.search.FileChangeObserver
 import org.scala.tools.eclipse.search.SearchPlugin
 import org.scala.tools.eclipse.search.indexing.OccurrenceCollector.InvalidPresentationCompilerException
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
-import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.SourceIndexer.UnableToIndexFilesException
 import org.scala.tools.eclipse.search.Observing
 
@@ -161,8 +160,8 @@ class ProjectIndexJob private (
 
 object ProjectIndexJob extends HasLogger {
 
-  def apply(indexer: SourceIndexer, 
-                sp: ScalaProject, 
+  def apply(indexer: SourceIndexer,
+                sp: ScalaProject,
           interval: Int = 5000,
          onStopped: (ProjectIndexJob) => Unit = _ => ()): ProjectIndexJob = {
 
