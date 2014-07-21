@@ -8,7 +8,7 @@ import java.io.File
 import org.apache.lucene.search.BooleanClause
 import scala.Array.fallbackCanBuildFrom
 import scala.Option.option2Iterable
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.TestUtil
 

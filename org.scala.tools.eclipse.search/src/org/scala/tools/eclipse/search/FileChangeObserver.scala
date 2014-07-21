@@ -8,7 +8,7 @@ import org.eclipse.core.resources.IResourceChangeListener
 import org.eclipse.core.resources.IResourceDelta
 import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 
 /**
  * Convenient way to react to changes that happen to

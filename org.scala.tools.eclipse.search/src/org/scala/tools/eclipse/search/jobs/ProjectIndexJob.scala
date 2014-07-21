@@ -2,7 +2,7 @@ package org.scala.tools.eclipse.search.jobs
 
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 import org.scalaide.logging.HasLogger
 import org.eclipse.core.resources.IFile
 import org.eclipse.core.resources.ResourcesPlugin

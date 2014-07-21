@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search.indexing
 
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scalaide.logging.HasLogger
 import scala.util.Failure

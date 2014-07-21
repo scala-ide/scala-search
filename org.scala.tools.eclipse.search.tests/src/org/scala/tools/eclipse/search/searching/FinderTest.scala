@@ -13,7 +13,7 @@ import org.eclipse.core.runtime.NullProgressMonitor
 import java.util.concurrent.CountDownLatch
 import org.scala.tools.eclipse.search.FileChangeObserver
 import org.scala.tools.eclipse.search.LogErrorReporter
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 import org.apache.lucene.search.IndexSearcher
 import scala.util.Try
 import scala.util.Failure

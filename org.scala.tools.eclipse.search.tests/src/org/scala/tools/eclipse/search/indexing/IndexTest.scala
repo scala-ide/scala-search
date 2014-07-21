@@ -2,7 +2,7 @@ package org.scala.tools.eclipse.search.indexing
 
 import java.io.IOException
 import scala.collection.JavaConverters.asJavaIterableConverter
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try

@@ -27,7 +27,7 @@ import org.scala.tools.eclipse.search.TestUtil
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.JobChangeAdapter
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 
 class ProjectIndexJobTest {
 
