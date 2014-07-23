@@ -13,6 +13,7 @@ import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IProject
 
 class ProjectFinderTest {
+  final val TimeOut = 60000 //ms
 
   import ProjectFinderTest._
   import ProjectFinder._
@@ -57,7 +58,7 @@ class ProjectFinderTest {
     // mean that the getReferencedProjects and getReferencingProjects are
     // initialized properly yet. Aparrently. If we remove this block
     // the conditions below will fail.
-    SDTTestUtils.waitUntil(10000)(setupIsReady)
+    SDTTestUtils.waitUntil(TimeOut)(setupIsReady)
 
     assertEquals(0, projectA.getReferencedProjects().size)
     assertEquals(2, projectA.getReferencingProjects().size) // A and C
