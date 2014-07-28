@@ -34,7 +34,7 @@ import LuceneFields.PATH
 import LuceneFields.PROJECT_NAME
 import LuceneFields.WORD
 import org.eclipse.core.resources.IFile
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 import scala.util.Success
 import scala.util.Failure
 import scala.collection.mutable.ArraySeq

@@ -22,7 +22,7 @@ import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
 import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
-import org.scalaide.core.internal.project.ScalaProject
+import org.scalaide.core.api.ScalaProject
 import org.scala.tools.eclipse.search.searching.Scope
 import org.scala.tools.eclipse.search.searching.Certain
 
