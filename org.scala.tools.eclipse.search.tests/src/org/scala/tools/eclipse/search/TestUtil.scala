@@ -14,7 +14,7 @@ import org.eclipse.core.resources.IFile
 import org.eclipse.core.runtime.IPath
 import java.util.concurrent.TimeUnit
 import org.scalaide.core.api.ScalaProject
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 import org.eclipse.core.runtime.Path
 
 trait TestUtil {

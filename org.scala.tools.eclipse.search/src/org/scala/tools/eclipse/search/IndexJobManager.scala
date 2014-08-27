@@ -2,7 +2,7 @@ package org.scala.tools.eclipse.search
 
 import scala.collection.mutable
 import org.scalaide.logging.HasLogger
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 
 import org.eclipse.core.resources.IProject
 
@@ -99,7 +99,7 @@ class IndexJobManager(indexer: SourceIndexer) extends Lifecycle with HasLogger {
       ()
     }
 
-    ScalaPlugin.plugin.asScalaProject(project).map { sp =>
+    IScalaPlugin().asScalaProject(project).map { sp =>
       ProjectIndexJob(indexer, sp, 5000, onStopped)
     }
   }

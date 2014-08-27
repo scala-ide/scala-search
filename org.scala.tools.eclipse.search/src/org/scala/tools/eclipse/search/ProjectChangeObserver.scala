@@ -8,8 +8,8 @@ import org.eclipse.core.resources.IResourceDelta
 import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.resources.IResource
-import org.scalaide.core.ScalaPlugin
 import org.scalaide.util.internal.Utils._
+import org.scalaide.core.internal.project.ScalaProject
 
 
 /**
@@ -71,7 +71,7 @@ object ProjectChangeObserver {
                 // When Scala projects are created their description is set to have the
                 // Scala nature. That produces an event that is separate and comes after
                 // the ADDED and OPEN events.
-                if(ScalaPlugin.plugin.isScalaProject(project))
+                if(ScalaProject.isScalaProject(project))
                   onNewScalaProject(project)
               }
               false

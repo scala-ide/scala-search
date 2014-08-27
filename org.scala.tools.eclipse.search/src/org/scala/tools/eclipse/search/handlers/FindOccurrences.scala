@@ -30,7 +30,7 @@ import org.scala.tools.eclipse.search.searching.Confidence
 import org.eclipse.search.ui.text.Match
 import org.scalaide.core.api.ScalaProject
 import org.scala.tools.eclipse.search.searching.ProjectFinder
-import org.scalaide.core.ScalaPlugin
+import org.scalaide.core.IScalaPlugin
 import org.scala.tools.eclipse.search.searching.Scope
 
 class FindOccurrences
@@ -49,7 +49,7 @@ class FindOccurrences
       scalaEditor.getInteractiveCompilationUnit.withSourceFile { (_, pc) =>
         // Get the relevant scope to search for sub-types in.
         val scope = ProjectFinder.projectClosure(scalaEditor.getInteractiveCompilationUnit.scalaProject.underlying)
-        val scalaScope = Scope(scope.map(ScalaPlugin.plugin.asScalaProject(_)).flatten)
+        val scalaScope = Scope(scope.map(IScalaPlugin().asScalaProject(_)).flatten)
         // Get the entity at the given location and start a search in the right scope
         val spc = new SearchPresentationCompiler(pc)
         val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
