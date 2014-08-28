@@ -28,7 +28,7 @@ import org.scala.tools.eclipse.search.searching.Uncertain
 import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scala.tools.eclipse.search.searching.Confidence
 import org.eclipse.search.ui.text.Match
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import org.scala.tools.eclipse.search.searching.ProjectFinder
 import org.scalaide.core.IScalaPlugin
 import org.scala.tools.eclipse.search.searching.Scope

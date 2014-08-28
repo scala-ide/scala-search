@@ -8,7 +8,7 @@ import org.eclipse.core.resources.IResourceChangeListener
 import org.eclipse.core.resources.IResourceDelta
 import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 
 /**
  * Convenient way to react to changes that happen to
@@ -21,7 +21,7 @@ object FileChangeObserver {
    * are responsible for stopping the listener when appropriate using the
    * stop method on Observing.
    */
-  def apply(p: ScalaProject)
+  def apply(p: IScalaProject)
            (onChanged: IFile => Unit = _ => (),
             onRemoved: IFile => Unit = _ => (),
             onAdded: IFile => Unit = _ => ()): Observing = {
@@ -39,7 +39,7 @@ object FileChangeObserver {
   // Hiding the Eclipse implementation here as we don't want the methods that
   // Eclipse needs to leak into the interface of FileChangeObserver.
   private class ChangeListener(
-           project: ScalaProject,
+           project: IScalaProject,
          onChanged: IFile => Unit = _ => (),
          onRemoved: IFile => Unit = _ => (),
            onAdded: IFile => Unit = _ => ()) extends IResourceChangeListener with HasLogger {

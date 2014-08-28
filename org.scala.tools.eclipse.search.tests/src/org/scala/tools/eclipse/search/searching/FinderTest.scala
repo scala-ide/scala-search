@@ -13,7 +13,7 @@ import org.eclipse.core.runtime.NullProgressMonitor
 import java.util.concurrent.CountDownLatch
 import org.scala.tools.eclipse.search.FileChangeObserver
 import org.scala.tools.eclipse.search.LogErrorReporter
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import org.apache.lucene.search.IndexSearcher
 import scala.util.Try
 import scala.util.Failure
@@ -329,7 +329,7 @@ class FinderTest {
     val index = new Index {
       override val base = INDEX_DIR
       // Emulate a failure for the index of project2.
-      override protected def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+      override protected def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
         if (project == project2.scalaProject) {
           Failure(new IOException)
         } else super.withSearcher(project)(f)

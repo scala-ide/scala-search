@@ -27,7 +27,7 @@ import org.scala.tools.eclipse.search.TestUtil
 import org.scala.tools.eclipse.search.indexing.SourceIndexer
 import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.JobChangeAdapter
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 
 class ProjectIndexJobTest {
 
@@ -204,7 +204,7 @@ object ProjectIndexJobTest
     when(index.isIndexable(Matchers.argThat(mocks.args.anyInstance[IFile]))).thenReturn(true)
     when(index.removeOccurrencesFromFile(
         Matchers.argThat(mocks.args.anyInstance[IPath]),
-        Matchers.argThat(mocks.args.anyInstance[ScalaProject]))).thenReturn(Success(()))
+        Matchers.argThat(mocks.args.anyInstance[IScalaProject]))).thenReturn(Success(()))
 
     val indexer = mock(classOf[SourceIndexer])
     when(indexer.index).thenReturn(index)

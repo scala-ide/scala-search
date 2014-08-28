@@ -20,7 +20,7 @@ import org.scala.tools.eclipse.search.searching.TypeHierarchyNode
 import org.scala.tools.eclipse.search.searching.EvaluatedNode
 import org.scala.tools.eclipse.search.searching.EvaluatingNode
 import org.scala.tools.eclipse.search.searching.LeafNode
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import org.scala.tools.eclipse.search.searching.Scope
 
 /**
