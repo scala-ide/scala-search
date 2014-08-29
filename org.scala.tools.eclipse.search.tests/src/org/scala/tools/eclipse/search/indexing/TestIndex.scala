@@ -8,7 +8,7 @@ import java.io.File
 import org.apache.lucene.search.BooleanClause
 import scala.Array.fallbackCanBuildFrom
 import scala.Option.option2Iterable
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import org.eclipse.core.runtime.Path
 import org.scala.tools.eclipse.search.TestUtil
 
@@ -23,7 +23,7 @@ trait TestIndex extends Index {
    * Tries to find all occurrences recorded in a given file, identified by the project
    * relative path and the name of the project in the workspace
    */
-  def occurrencesInFile(path: IPath, project: ScalaProject): Try[Seq[Occurrence]] = {
+  def occurrencesInFile(path: IPath, project: IScalaProject): Try[Seq[Occurrence]] = {
     withSearcher(project) { searcher =>
 
       val query = new BooleanQuery()

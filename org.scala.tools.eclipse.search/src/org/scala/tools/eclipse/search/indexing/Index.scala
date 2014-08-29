@@ -34,14 +34,14 @@ import LuceneFields.PATH
 import LuceneFields.PROJECT_NAME
 import LuceneFields.WORD
 import org.eclipse.core.resources.IFile
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import scala.util.Success
 import scala.util.Failure
 import scala.collection.mutable.ArraySeq
 import org.scala.tools.eclipse.search.searching.Scope
 
 trait SearchFailure
-case class BrokenIndex(project: ScalaProject) extends SearchFailure
+case class BrokenIndex(project: IScalaProject) extends SearchFailure
 
 /**
  * A Lucene based index of all occurrences of Scala entities recorded in the workspace.
@@ -164,7 +164,7 @@ trait Index extends HasLogger {
     groupSearchResults(resuts.seq)
   }
 
-  private def queryScope(query: BooleanQuery, scope: Scope): Set[(ScalaProject, Try[ArraySeq[Occurrence]])] = {
+  private def queryScope(query: BooleanQuery, scope: Scope): Set[(IScalaProject, Try[ArraySeq[Occurrence]])] = {
     scope.projects.par.map { project =>
       val resultsForProject = withSearcher(project){ searcher =>
         for {
@@ -176,9 +176,9 @@ trait Index extends HasLogger {
     }.seq
   }
 
-  private def groupSearchResults(results: Set[(ScalaProject, Try[ArraySeq[Occurrence]])]): (Seq[Occurrence], Seq[SearchFailure]) = {
+  private def groupSearchResults(results: Set[(IScalaProject, Try[ArraySeq[Occurrence]])]): (Seq[Occurrence], Seq[SearchFailure]) = {
     val initial: (Seq[Occurrence], Seq[SearchFailure]) = (Nil, Nil)
-    results.foldLeft(initial) { (acc, t: (ScalaProject,Try[Seq[Occurrence]])) =>
+    results.foldLeft(initial) { (acc, t: (IScalaProject,Try[Seq[Occurrence]])) =>
       val (occurrences, failures) = acc
       t match {
         case (_, Success(xs)) => (occurrences ++ xs, failures)
@@ -197,7 +197,7 @@ trait Index extends HasLogger {
    * CorruptIndexException - If the Index somehow has become corrupted.
    *
    */
-  def addOccurrences(occurrences: Seq[Occurrence], project: ScalaProject): Try[Unit] = {
+  def addOccurrences(occurrences: Seq[Occurrence], project: IScalaProject): Try[Unit] = {
     doWithWriter(project) { writer =>
       val docs = occurrences.map( toDocument(project.underlying, _) )
       writer.addDocuments(docs.toIterable.asJava)
@@ -214,7 +214,7 @@ trait Index extends HasLogger {
    *
    * CorruptIndexException - If the Index somehow has become corrupted.
    */
-  def removeOccurrencesFromFile(path: IPath, project: ScalaProject): Try[Unit] = {
+  def removeOccurrencesFromFile(path: IPath, project: IScalaProject): Try[Unit] = {
     doWithWriter(project) { writer =>
       val query = new BooleanQuery()
       query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
@@ -232,7 +232,7 @@ trait Index extends HasLogger {
    * It might return Failure with other exceptions depending on which methods
    * on IndexWriter `f` is using.
    */
-  protected def doWithWriter(project: ScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
+  protected def doWithWriter(project: IScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
     val loc = location(project.underlying).toFile()
     using(FSDirectory.open(loc), handlers = IOToTry[Unit]) { dir =>
       using(new IndexWriter(dir, config), handlers = IOToTry[Unit]) { writer =>
@@ -250,7 +250,7 @@ trait Index extends HasLogger {
    * It might return Failure with other exceptions depending on which methods
    * on IndexSearcher `f` is using.
    */
-  protected def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+  protected def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
     val loc = location(project.underlying).toFile()
     using(FSDirectory.open(loc), handlers = IOToTry[A]) { dir =>
       using(DirectoryReader.open(dir), handlers = IOToTry[A]) { reader =>

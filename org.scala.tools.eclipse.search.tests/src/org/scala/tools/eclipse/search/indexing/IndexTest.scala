@@ -2,7 +2,7 @@ package org.scala.tools.eclipse.search.indexing
 
 import java.io.IOException
 import scala.collection.JavaConverters.asJavaIterableConverter
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -283,7 +283,7 @@ class IndexTest {
 
     val config = new Index {
       override val base = INDEX_DIR
-      override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+      override def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
         Failure(new CorruptIndexException(""))
       }
     }
@@ -300,7 +300,7 @@ class IndexTest {
     // searching in another project failed
     val index = new Index {
       override val base = INDEX_DIR
-      override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+      override def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
         if (project.underlying.getName == projectA.scalaProject.underlying.getName) {
           Failure(new CorruptIndexException(""))
         }
@@ -339,7 +339,7 @@ object LuceneIndexTest extends TestUtil
 
     override val base = INDEX_DIR
 
-    override def doWithWriter(project: ScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
+    override def doWithWriter(project: IScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
       val writer = mock(classOf[IndexWriter])
 
       when(writer.deleteDocuments(
@@ -356,7 +356,7 @@ object LuceneIndexTest extends TestUtil
 
     override val base = INDEX_DIR
 
-    override def withSearcher[A](project: ScalaProject)(f: IndexSearcher => A): Try[A] = {
+    override def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
       val searcher = mock(classOf[IndexSearcher])
       when(searcher.search(
           org.mockito.Matchers.argThat(mocks.args.anyInstance[BooleanQuery]),

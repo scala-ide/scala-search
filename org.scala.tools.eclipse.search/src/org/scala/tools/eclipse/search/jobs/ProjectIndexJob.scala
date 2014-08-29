@@ -2,7 +2,7 @@ package org.scala.tools.eclipse.search.jobs
 
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import org.scalaide.logging.HasLogger
 import org.eclipse.core.resources.IFile
 import org.eclipse.core.resources.ResourcesPlugin
@@ -34,7 +34,7 @@ import org.scala.tools.eclipse.search.Observing
  */
 class ProjectIndexJob private (
   indexer: SourceIndexer,
-  project: ScalaProject,
+  project: IScalaProject,
   interval: Long,
   onStopped: (ProjectIndexJob) => Unit = _ => ()
 ) extends Job("Project Indexing Job: " + project.underlying.getName) with HasLogger {
@@ -161,7 +161,7 @@ class ProjectIndexJob private (
 object ProjectIndexJob extends HasLogger {
 
   def apply(indexer: SourceIndexer,
-                sp: ScalaProject,
+                sp: IScalaProject,
           interval: Int = 5000,
          onStopped: (ProjectIndexJob) => Unit = _ => ()): ProjectIndexJob = {
 

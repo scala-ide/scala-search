@@ -13,7 +13,7 @@ import org.mockito.ArgumentMatcher
 import org.eclipse.core.resources.IFile
 import org.eclipse.core.runtime.IPath
 import java.util.concurrent.TimeUnit
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import org.scalaide.core.IScalaPlugin
 import org.eclipse.core.runtime.Path
 
@@ -28,7 +28,7 @@ trait TestUtil {
     xs.mkString(File.separator)
   }
 
-  def addSourceFile(project: ScalaProject)(name: String, contents: String) = {
+  def addSourceFile(project: IScalaProject)(name: String, contents: String) = {
     val folder = project.underlying.getFolder("src")
     if (!folder.exists())
       folder.create(IResource.NONE, true, null)
@@ -39,14 +39,14 @@ trait TestUtil {
    }
   }
 
-  def deleteSourceFile(project: ScalaProject)(name: String) = {
+  def deleteSourceFile(project: IScalaProject)(name: String) = {
     val folder = project.underlying.getFolder("src")
     val file = folder.getFile(name)
     if (folder.exists() && file.exists())
       file.delete(true, false, null)
   }
 
-  def addContent(project: ScalaProject)(name: String, contents: String) = {
+  def addContent(project: IScalaProject)(name: String, contents: String) = {
     val folder = project.underlying.getFolder("src")
     val file = folder.getFile(name)
     if (folder.exists() && file.exists()) {

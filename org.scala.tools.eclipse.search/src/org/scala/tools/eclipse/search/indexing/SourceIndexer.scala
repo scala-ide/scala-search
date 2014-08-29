@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search.indexing
 
-import org.scalaide.core.api.ScalaProject
+import org.scalaide.core.IScalaProject
 import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scalaide.logging.HasLogger
 import scala.util.Failure
@@ -31,7 +31,7 @@ class SourceIndexer(val index: Index) extends HasLogger {
    * been indexed.
    *
    */
-  def indexProject(proj: ScalaProject): Try[Unit] = {
+  def indexProject(proj: IScalaProject): Try[Unit] = {
 
     index.deleteIndex(proj.underlying)
 
