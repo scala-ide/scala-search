@@ -1,7 +1,6 @@
 package org.scala.tools.eclipse.search.searching
 
 import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
-import org.scalaide.core.EclipseUserSimulator
 import org.eclipse.core.runtime.NullProgressMonitor
 import org.junit.Assert._
 import org.eclipse.jdt.core.JavaCore
@@ -10,6 +9,7 @@ import scala.Array.canBuildFrom
 import org.scala.tools.eclipse.search.indexing.OccurrenceCollector
 import org.scala.tools.eclipse.search.indexing.Occurrence
 import org.scala.tools.eclipse.search.TypeEntity
+import org.scalaide.core.testsetup.SDTTestUtils
 
 trait SourceCreator {
 
@@ -121,10 +121,9 @@ trait SourceCreator {
 
   class Project private (val name: String) {
 
-    private val adhocSimulator = new EclipseUserSimulator
     private val _sources: Seq[ScalaCompilationUnit] = Nil
 
-    val scalaProject = adhocSimulator.createProjectInWorkspace(name, true)
+    val scalaProject = SDTTestUtils.createProjectInWorkspace(name, true)
 
     def source = _sources
 
@@ -163,8 +162,8 @@ trait SourceCreator {
       }
 
       val cleanedText = text.filterNot(_ == CaretMarker).mkString
-      val emptyPkg = adhocSimulator.createPackage("")
-      val unit = adhocSimulator.createCompilationUnit(emptyPkg, name, cleanedText).asInstanceOf[ScalaCompilationUnit]
+      val emptyPkg = SDTTestUtils.createSourcePackage("")(scalaProject)
+      val unit = SDTTestUtils.createCompilationUnit(emptyPkg, name, cleanedText).asInstanceOf[ScalaCompilationUnit]
 
       unit +: _sources
 
