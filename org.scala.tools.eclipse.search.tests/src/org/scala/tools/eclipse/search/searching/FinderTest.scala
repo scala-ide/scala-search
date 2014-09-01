@@ -8,7 +8,6 @@ import org.scala.tools.eclipse.search.TestUtil
 import org.junit.Test
 import org.junit.Assert._
 import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
-import org.scalaide.core.EclipseUserSimulator
 import org.eclipse.core.runtime.NullProgressMonitor
 import java.util.concurrent.CountDownLatch
 import org.scala.tools.eclipse.search.FileChangeObserver
