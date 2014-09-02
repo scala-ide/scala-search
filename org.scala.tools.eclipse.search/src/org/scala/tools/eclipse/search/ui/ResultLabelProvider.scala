@@ -1,6 +1,6 @@
 package org.scala.tools.eclipse.search.ui
 
-import org.scalaide.ui.internal.ScalaImages
+import org.scalaide.ui.ScalaImages
 import org.scalaide.logging.HasLogger
 
 import org.eclipse.jface.resource.JFaceResources

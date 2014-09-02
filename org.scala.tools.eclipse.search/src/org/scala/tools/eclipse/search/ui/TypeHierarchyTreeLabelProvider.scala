@@ -7,7 +7,7 @@ import org.eclipse.jface.viewers.StyledString
 import org.scalaide.logging.HasLogger
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Uncertain
-import org.scalaide.ui.internal.ScalaImages
+import org.scalaide.ui.ScalaImages
 import org.scala.tools.eclipse.search.searching.LeafNode
 import org.scala.tools.eclipse.search.searching.EvaluatingNode
 import org.scala.tools.eclipse.search.searching.EvaluatedNode
@@ -24,6 +24,10 @@ import org.eclipse.jface.viewers.IDecoration
  *
  * The type-hierarchy is represented using `TypeHierarchyNode` and they're produced in
  * `TypeHierarchyTreeContentProvider`.
+ *
+ * TODO: this class is likely too complex and re-implementing platform features. It should be possible
+ * to get the same result by implementing only IStyledLabelProvider, and wrapping it inside a DelegatingStyledCellLabelProvider.
+ * https://github.com/scala-ide/scala-search/issues/98
  */
 class TypeHierarchyTreeLabelProvider(leafLabel: String) extends StyledCellLabelProvider with HasLogger {
 
