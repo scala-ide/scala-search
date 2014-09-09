@@ -4,7 +4,7 @@ package searching
 import scala.reflect.internal.util.OffsetPosition
 import scala.reflect.internal.util.RangePosition
 import scala.reflect.internal.util.SourceFile
-import org.scalaide.core.compiler.ScalaPresentationCompiler
+import org.scalaide.core.compiler.IScalaPresentationCompiler
 import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
 import org.scalaide.logging.HasLogger
 import scala.tools.nsc.interactive.Response
@@ -25,7 +25,7 @@ case object CantLoadFile extends CompilerProblem
  * structures are used and thus make sure that we conform to the synchronization
  * policy of the presentation compiler.
  */
-class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasLogger {
+class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends HasLogger {
 
   // ADT used to express the result of symbolAt.
   protected sealed abstract class SymbolRequest {
@@ -45,6 +45,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    * given position.
    */
   def entityAt(loc: Location): Either[CompilerProblem, Option[Entity]] = {
+	  import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
     for {
       symbolOpt <- (symbolAt(loc) match {
         case FoundSymbol(symbol) => Right(Some(symbol))
@@ -52,8 +53,8 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
         case Unexpected => Left(UnexpectedNoSymbol): Either[CompilerProblem, Option[pc.Symbol]]
       }).right
       entityOpt <- symbolOpt match {
-        case Some(symbol) => (pc.askOption { () => Right(Some(symbolToEntity(symbol))) }
-                                 getOrElse Left(UnknownCompilerProblem)).right
+        case Some(symbol) => (pc.asyncExec { Right(Some(symbolToEntity(symbol))) }
+                                 .getOrElse(Left(UnknownCompilerProblem))()).right
         case None => Right(None).right
       }
     } yield entityOpt
@@ -71,7 +72,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       file <- Util.scalaSourceFileFromAbstractFile(symbol.sourceFile) onEmpty
               logger.debug("Cound't add location to the entity as it wasn't possible " +
                             "to get a ScalaSourceFile form symbol.sourceFile")
-      loc  <- pc.locate(symbol, file) onEmpty
+      loc  <- pc.findDeclaration(symbol, file.getJavaProject) onEmpty
               logger.debug("Cound't add location to the entity as it wasn't possible " +
                             "to get the exact location of the symbol.")
       val offset = loc._2
@@ -156,12 +157,14 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
     def namesForApply(symbol: pc.Symbol) = {
       List(symbol.decodedName, symbol.owner.decodedName)
     }
-
-    pc.askOption { () =>
+    
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
+    pc.asyncExec {
       if (isValOrVar(symbol)) namesForValOrVars(symbol)
       else if (symbol.nameString == "apply") namesForApply(symbol)
       else List(symbol.decodedName)
-    }
+    }.getOption()
   }
 
   /**
@@ -172,13 +175,15 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
 
     def isRealSymbol(s: pc.Symbol) = s != null && s != pc.NoSymbol
 
-    pc.askOption { () =>
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
+    pc.asyncExec {
       for {
         parent  <- symbol.parentSymbols if isRealSymbol(parent)
         entity  =  symbolToEntity(parent)
         typed   <- Some(entity) collect { case t: TypeEntity => t }
       } yield typed
-    } getOrElse Nil
+    }.getOrElse(Nil)()
   }
 
   /**
@@ -196,6 +201,8 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    */
   def declarationContaining(loc: Location): Either[CompilerProblem, Option[Entity]] = {
 
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
     loc.cu.withSourceFile { (sf,locPc) =>
 
       import locPc._
@@ -205,15 +212,15 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
           (t.isInstanceOf[ModuleDef] || t.isInstanceOf[ClassDef]) && super.isEligible(t)
       }
 
-      locPc.withParseTree(sf) { parsed =>
+      locPc.asyncExec{
         val pos = new OffsetPosition(sf, loc.offset)
-        new ModuleDefOrClassDefLocator(pos).locateIn(parsed) match {
+        new ModuleDefOrClassDefLocator(pos).locateIn(locPc.parseTree(sf)) match {
           case t: ModuleDef => entityAt(Location(loc.cu, t.pos.point))
           case t @ ClassDef(_, name, _ , _) if name.startsWith("$anon") => Right(None) // Ignoring anonymous types for now, till we have #1001818
           case t: ClassDef => entityAt(Location(loc.cu, t.pos.point))
           case _ => Right(None)
         }
-      }
+      }.getOrElse(Left(CantLoadFile))()
     } getOrElse (Left(CantLoadFile))
   }
 
@@ -222,12 +229,14 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    */
   private def createSymbolComparator(symbol: pc.Symbol) = SymbolComparator { otherLoc =>
 
-    def compare(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = pc.askOption { () =>
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
+    def compare(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = pc.asyncExec {
       if (s1.isLocal || s2.isLocal) isSameSymbol(s1,s2)
       else if (isValOrVar(s1)) isSameValOrVar(s1, s2)
       else if (s1.isMethod) isSameMethod(s1.asMethod, s2)
       else isSameSymbol(s1, s2)
-    } flatten
+    }.getOption().flatten
 
     otherLoc.cu.withSourceFile { (_, otherPc) =>
       val otherSpc = new SearchPresentationCompiler(otherPc)
@@ -252,6 +261,8 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    * more information.
    */
   protected def symbolAt[A](loc: Location): SymbolRequest = {
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
     loc.cu.withSourceFile { (sf, _) =>
       val typed = new Response[pc.Tree]
       val pos = new OffsetPosition(sf, loc.offset)
@@ -262,7 +273,8 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
             (for {
               symbol <- Option(tree.symbol)
             } yield (for {
-              (overloaded, treePos) <- pc.askOption { () => (symbol.isOverloaded, tree.pos) } if overloaded
+              // TODO: need asyncExec
+              (overloaded, treePos) <- pc.asyncExec { (symbol.isOverloaded, tree.pos) }.getOption() if overloaded
             } yield resolveOverloadedSymbol(treePos, sf))
                     getOrElse filterNoSymbols(symbol)) getOrElse Unexpected
           }
@@ -323,7 +335,9 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
     val EXTRA_SPACE = 1
     val TYPE_PARAMS_END_CHAR = 1
 
-    val posInCaseOfTypeApply = pc.withParseTree(cu) { parsed =>
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
+    val posInCaseOfTypeApply = pc.asyncExec {
       import pc._
       // We want to find the TypeApply that contains the Select
       // node.
@@ -331,14 +345,14 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
         override def isEligible(t: Tree) = t.isInstanceOf[TypeApply] && super.isEligible(t)
       }
 
-      new TypeApplyLocator(treePos.pos).locateIn(parsed) match {
+      new TypeApplyLocator(treePos.pos).locateIn(pc.parseTree(cu)) match {
         case TypeApply(_, types) => {
           val max = types.map(_.pos.endOrPoint).max
           Some((treePos.pos.point, max + EXTRA_SPACE + TYPE_PARAMS_END_CHAR))
         }
         case x => None
       }
-    }
+    }.getOption().flatten
 
     lazy val posInCaseOfApply = (
         treePos.pos.point,
@@ -381,6 +395,8 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    */
   private def importSymbol(spc: SearchPresentationCompiler)(s: spc.pc.Symbol): Option[pc.Symbol] = {
 
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
     // https://github.com/scala/scala/blob/master/src/reflect/scala/reflect/api/Importers.scala
     val importer0 = pc.mkImporter(spc.pc)
     val importer = importer0.asInstanceOf[pc.Importer { val from: spc.pc.type }]
@@ -388,17 +404,17 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
     // Before importing the symbol, we have to make sure that it is fully initialized,
     // otherwise it would access thread unsafe members in spc.pc when importing the symbol
     // into pc.
-    spc.pc.askOption { () =>
+    spc.pc.asyncExec {
       def fullyInitialize(thisSym: spc.pc.Symbol): Unit = {
         spc.pc.definitions.fullyInitializeSymbol(thisSym)
         thisSym.sourceModule.initialize
       }
       (s :: s.ownerChain) foreach (fullyInitialize)
-    } onEmpty (logger.debug("Timed out on initializing symbol before import"))
+    }.getOption().onEmpty (logger.debug("Timed out on initializing symbol before import"))
 
-    pc.askOption { () =>
+    pc.asyncExec {
       importer.importSymbol(s)
-    }  onEmpty (logger.debug("Timed out on symbol import"))
+    }.getOption().onEmpty (logger.debug("Timed out on symbol import"))
 
   }
 
@@ -466,7 +482,9 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
    * are setters.
    */
   private def isSameSymbol(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
-    pc.askOption { () =>
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    
+    pc.asyncExec {
 
       lazy val isInHiearchy = s1.owner.isSubClass(s2.owner) ||
                               s2.owner.isSubClass(s1.owner)
@@ -485,7 +503,7 @@ class SearchPresentationCompiler(val pc: ScalaPresentationCompiler) extends HasL
       hasSameName &&
       isInHiearchy &&
       (hasSameTypeSignature || isOverridden)
-    } onEmpty logger.debug("Timed out when comparing symbols")
+    }.getOption().onEmpty { logger.debug("Timed out when comparing symbols") }
   }
 
   private def isValOrVar(s: pc.Symbol): Boolean = {
