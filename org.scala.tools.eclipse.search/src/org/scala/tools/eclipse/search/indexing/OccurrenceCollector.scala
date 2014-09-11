@@ -40,9 +40,7 @@ object OccurrenceCollector extends HasLogger {
 
     if (file.exists) {
       file.withSourceFile( (source, pcompiler) => {
-        pcompiler.asyncExec {
-          Success(findOccurrences(pcompiler)(file, pcompiler.parseTree(source))): Try[Seq[Occurrence]]
-        }.getOrElse (failedWithSF)()
+        Success(findOccurrences(pcompiler)(file, pcompiler.parseTree(source))): Try[Seq[Occurrence]]
       }) getOrElse (failedWithSF)
     } else noFileError
   }

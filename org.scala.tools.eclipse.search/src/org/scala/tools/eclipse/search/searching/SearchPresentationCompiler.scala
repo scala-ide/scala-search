@@ -157,9 +157,9 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
     def namesForApply(symbol: pc.Symbol) = {
       List(symbol.decodedName, symbol.owner.decodedName)
     }
-    
+
     import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
+
     pc.asyncExec {
       if (isValOrVar(symbol)) namesForValOrVars(symbol)
       else if (symbol.nameString == "apply") namesForApply(symbol)
@@ -176,7 +176,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
     def isRealSymbol(s: pc.Symbol) = s != null && s != pc.NoSymbol
 
     import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
+
     pc.asyncExec {
       for {
         parent  <- symbol.parentSymbols if isRealSymbol(parent)
@@ -202,7 +202,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
   def declarationContaining(loc: Location): Either[CompilerProblem, Option[Entity]] = {
 
     import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
+
     loc.cu.withSourceFile { (sf,locPc) =>
 
       import locPc._
@@ -212,15 +212,13 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
           (t.isInstanceOf[ModuleDef] || t.isInstanceOf[ClassDef]) && super.isEligible(t)
       }
 
-      locPc.asyncExec{
-        val pos = new OffsetPosition(sf, loc.offset)
-        new ModuleDefOrClassDefLocator(pos).locateIn(locPc.parseTree(sf)) match {
-          case t: ModuleDef => entityAt(Location(loc.cu, t.pos.point))
-          case t @ ClassDef(_, name, _ , _) if name.startsWith("$anon") => Right(None) // Ignoring anonymous types for now, till we have #1001818
-          case t: ClassDef => entityAt(Location(loc.cu, t.pos.point))
-          case _ => Right(None)
-        }
-      }.getOrElse(Left(CantLoadFile))()
+      val pos = new OffsetPosition(sf, loc.offset)
+      new ModuleDefOrClassDefLocator(pos).locateIn(locPc.parseTree(sf)) match {
+        case t: ModuleDef => entityAt(Location(loc.cu, t.pos.point))
+        case t @ ClassDef(_, name, _ , _) if name.startsWith("$anon") => Right(None) // Ignoring anonymous types for now, till we have #1001818
+        case t: ClassDef => entityAt(Location(loc.cu, t.pos.point))
+        case _ => Right(None)
+      }
     } getOrElse (Left(CantLoadFile))
   }
 
@@ -230,7 +228,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
   private def createSymbolComparator(symbol: pc.Symbol) = SymbolComparator { otherLoc =>
 
     import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
+
     def compare(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = pc.asyncExec {
       if (s1.isLocal || s2.isLocal) isSameSymbol(s1,s2)
       else if (isValOrVar(s1)) isSameValOrVar(s1, s2)
@@ -262,7 +260,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
    */
   protected def symbolAt[A](loc: Location): SymbolRequest = {
     import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
+
     loc.cu.withSourceFile { (sf, _) =>
       val typed = new Response[pc.Tree]
       val pos = new OffsetPosition(sf, loc.offset)
@@ -335,9 +333,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
     val EXTRA_SPACE = 1
     val TYPE_PARAMS_END_CHAR = 1
 
-    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
-    val posInCaseOfTypeApply = pc.asyncExec {
+    val posInCaseOfTypeApply = {
       import pc._
       // We want to find the TypeApply that contains the Select
       // node.
@@ -352,7 +348,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
         }
         case x => None
       }
-    }.getOption().flatten
+    }
 
     lazy val posInCaseOfApply = (
         treePos.pos.point,
@@ -396,7 +392,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
   private def importSymbol(spc: SearchPresentationCompiler)(s: spc.pc.Symbol): Option[pc.Symbol] = {
 
     import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
+
     // https://github.com/scala/scala/blob/master/src/reflect/scala/reflect/api/Importers.scala
     val importer0 = pc.mkImporter(spc.pc)
     val importer = importer0.asInstanceOf[pc.Importer { val from: spc.pc.type }]
@@ -483,7 +479,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
    */
   private def isSameSymbol(s1: pc.Symbol, s2: pc.Symbol): Option[Boolean] = {
     import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
-    
+
     pc.asyncExec {
 
       lazy val isInHiearchy = s1.owner.isSubClass(s2.owner) ||
