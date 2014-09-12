@@ -1,11 +1,11 @@
 package org.scala.tools.eclipse.search.searching
 
-import org.scalaide.core.compiler.ScalaPresentationCompiler
+import org.scalaide.core.compiler.IScalaPresentationCompiler
 
 /**
  * Some extra methods that are convenient for the test code.
  */
-class TestSearchPresentationCompiler(pc: ScalaPresentationCompiler) extends SearchPresentationCompiler(pc) {
+class TestSearchPresentationCompiler(pc: IScalaPresentationCompiler) extends SearchPresentationCompiler(pc) {
 
   def isNoSymbol(loc: Location): Boolean = {
     symbolAt(loc) match {

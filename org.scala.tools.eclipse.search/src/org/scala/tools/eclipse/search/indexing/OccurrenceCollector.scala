@@ -4,7 +4,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-import org.scalaide.core.compiler.ScalaPresentationCompiler
+import org.scalaide.core.compiler.IScalaPresentationCompiler
 import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
 import org.scalaide.logging.HasLogger
 
@@ -36,16 +36,16 @@ object OccurrenceCollector extends HasLogger {
         new InvalidPresentationCompilerException(
             s"Couldn't get source file for ${file.file.path}"))
 
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+
     if (file.exists) {
       file.withSourceFile( (source, pcompiler) => {
-        pcompiler.withParseTree(source) { tree =>
-          Success(findOccurrences(pcompiler)(file, tree)): Try[Seq[Occurrence]]
-        }
+        Success(findOccurrences(pcompiler)(file, pcompiler.parseTree(source))): Try[Seq[Occurrence]]
       }) getOrElse (failedWithSF)
     } else noFileError
   }
 
-  private def findOccurrences(pc: ScalaPresentationCompiler)
+  private def findOccurrences(pc: IScalaPresentationCompiler)
                              (file: ScalaCompilationUnit, tree: pc.Tree): Seq[Occurrence] = {
     import pc._
 
@@ -114,7 +114,7 @@ object OccurrenceCollector extends HasLogger {
     occurrences.toList
   }
 
-  private def isSynthetic(pc: ScalaPresentationCompiler)
+  private def isSynthetic(pc: IScalaPresentationCompiler)
                          (tree: pc.Tree): Boolean = {
     tree.pos == pc.NoPosition
   }
