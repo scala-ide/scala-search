@@ -36,7 +36,7 @@ object OccurrenceCollector extends HasLogger {
         new InvalidPresentationCompilerException(
             s"Couldn't get source file for ${file.file.path}"))
 
-    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits.RichResponse
 
     if (file.exists) {
       file.withSourceFile( (source, pcompiler) => {
