@@ -8,7 +8,7 @@ import org.eclipse.core.resources.IResourceDelta
 import org.eclipse.core.resources.IResourceDeltaVisitor
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.resources.IResource
-import org.scalaide.util.internal.Utils._
+import org.scalaide.util.internal.Utils.WithAsInstanceOfOpt
 import org.scalaide.core.internal.project.ScalaProject
 
 
