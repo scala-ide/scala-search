@@ -10,7 +10,7 @@ import org.scala.tools.eclipse.search.SearchPlugin
 import org.scala.tools.eclipse.search.searching.Finder
 import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 import org.scala.tools.eclipse.search.ui.TypeHierarchyView
-import org.scalaide.util.internal.Utils.WithAsInstanceOfOpt
+import org.scalaide.util.UtilsImplicits.withAsInstanceOfOpt
 import org.eclipse.ui.handlers.HandlerUtil
 import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.Location

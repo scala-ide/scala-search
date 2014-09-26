@@ -4,7 +4,7 @@ package ui
 import scala.reflect.runtime.universe
 import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scalaide.logging.HasLogger
-import org.scalaide.util.internal.Utils.WithAsInstanceOfOpt
+import org.scalaide.util.UtilsImplicits.withAsInstanceOfOpt
 
 import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.jface.viewers.IStructuredSelection

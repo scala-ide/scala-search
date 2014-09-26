@@ -21,7 +21,7 @@ import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 import org.scala.tools.eclipse.search.ui.SearchResult
 import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler
 import org.scala.tools.eclipse.search.indexing.SearchFailure
-import org.scalaide.util.internal.Utils.WithAsInstanceOfOpt
+import org.scalaide.util.UtilsImplicits.withAsInstanceOfOpt
 import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Uncertain
