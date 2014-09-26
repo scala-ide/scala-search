@@ -201,7 +201,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
    */
   def declarationContaining(loc: Location): Either[CompilerProblem, Option[Entity]] = {
 
-    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits._
+    import org.scalaide.core.compiler.IScalaPresentationCompiler.Implicits.RichResponse
 
     loc.cu.withSourceFile { (sf,locPc) =>
 
