@@ -17,7 +17,7 @@ import org.eclipse.jface.viewers.IDoubleClickListener
 import org.eclipse.jface.viewers.DoubleClickEvent
 import org.eclipse.jface.viewers.IStructuredSelection
 import org.scala.tools.eclipse.search.searching.EvaluatedNode
-import org.scalaide.util.UtilsImplicits.withAsInstanceOfOpt
+import org.scalaide.util.Utils.WithAsInstanceOfOpt
 import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
