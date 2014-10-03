@@ -3,7 +3,7 @@ package ui
 
 import scala.collection.mutable
 import org.scalaide.logging.HasLogger
-import org.scalaide.util.internal.Utils.WithAsInstanceOfOpt
+import org.scalaide.util.Utils.WithAsInstanceOfOpt
 import org.eclipse.core.runtime.IProgressMonitor
 import org.eclipse.core.runtime.IStatus
 import org.eclipse.core.runtime.Status
