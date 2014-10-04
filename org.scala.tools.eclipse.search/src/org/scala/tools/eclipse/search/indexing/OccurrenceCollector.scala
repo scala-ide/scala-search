@@ -3,10 +3,9 @@ package org.scala.tools.eclipse.search.indexing
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import org.scalaide.core.compiler.IScalaPresentationCompiler
-import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
 import org.scalaide.logging.HasLogger
+import org.scalaide.core.compiler.InteractiveCompilationUnit
 
 /**
  * Used to parse and traverse the parse tree of a compilation unit finding
@@ -26,7 +25,7 @@ object OccurrenceCollector extends HasLogger {
    *   be started because of classpath issues)
    *
    */
-  def findOccurrences(file: ScalaCompilationUnit): Try[Seq[Occurrence]] = {
+  def findOccurrences(file: InteractiveCompilationUnit): Try[Seq[Occurrence]] = {
 
     lazy val failedWithSF: Try[Seq[Occurrence]] = Failure(
         new InvalidPresentationCompilerException(
@@ -44,7 +43,7 @@ object OccurrenceCollector extends HasLogger {
   }
 
   private def findOccurrences(pc: IScalaPresentationCompiler)
-                             (file: ScalaCompilationUnit, tree: pc.Tree): Seq[Occurrence] = {
+                             (file: InteractiveCompilationUnit, tree: pc.Tree): Seq[Occurrence] = {
     import pc._
 
     val occurrences = new scala.collection.mutable.ListBuffer[Occurrence]()

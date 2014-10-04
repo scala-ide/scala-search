@@ -1,7 +1,6 @@
 package org.scala.tools.eclipse.search.indexing
 
 import org.scalaide.core.IScalaProject
-import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scalaide.logging.HasLogger
 import scala.util.Failure
 import scala.util.Success
@@ -10,6 +9,7 @@ import org.eclipse.core.resources.IFile
 import org.scala.tools.eclipse.search.SearchPlugin
 import org.scala.tools.eclipse.search.Util.scalaSourceFileFromIFile
 import java.io.IOException
+import org.scalaide.core.compiler.InteractiveCompilationUnit
 
 /**
  * Indexes Scala sources and add all occurrences to the `index`.
@@ -108,7 +108,7 @@ class SourceIndexer(val index: Index) extends HasLogger {
    * InvalidPresentationCompilerException
    *   If it wasn't able to get the AST of one Scala files that it wanted to Index.
    */
-  def indexScalaFile(sf: ScalaSourceFile): Try[Unit] = {
+  def indexScalaFile(sf: InteractiveCompilationUnit): Try[Unit] = {
     logger.debug(s"Indexing document: ${sf.file.path}")
 
     for {

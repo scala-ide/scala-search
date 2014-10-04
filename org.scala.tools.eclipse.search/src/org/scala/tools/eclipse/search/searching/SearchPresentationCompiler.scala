@@ -72,7 +72,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
       file <- Util.scalaSourceFileFromAbstractFile(symbol.sourceFile) onEmpty
               logger.debug("Cound't add location to the entity as it wasn't possible " +
                             "to get a ScalaSourceFile form symbol.sourceFile")
-      loc  <- pc.findDeclaration(symbol, file.getJavaProject) onEmpty
+      loc  <- pc.findDeclaration(symbol, file.scalaProject.javaProject) onEmpty
               logger.debug("Cound't add location to the entity as it wasn't possible " +
                             "to get the exact location of the symbol.")
       val offset = loc._2

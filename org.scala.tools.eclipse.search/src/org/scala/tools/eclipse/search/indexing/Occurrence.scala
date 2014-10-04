@@ -1,10 +1,9 @@
 package org.scala.tools.eclipse.search.indexing
 
-import org.scalaide.core.internal.jdt.model.ScalaSourceFile
-import org.scalaide.core.internal.jdt.model.ScalaCompilationUnit
 import org.scala.tools.eclipse.search.searching.Hit
 import org.scala.tools.eclipse.search.searching.Hit
 import org.scala.tools.eclipse.search.Util
+import org.scalaide.core.compiler.InteractiveCompilationUnit
 
 /**
  * Represents the various kinds of occurrences that we deal with
@@ -36,7 +35,7 @@ object LuceneFields {
  */
 case class Occurrence(
     word: String,
-    file: ScalaCompilationUnit,
+    file: InteractiveCompilationUnit,
     offset: Int, // char offset from beginning of file
     occurrenceKind: OccurrenceKind,
     lineContent: String = "",

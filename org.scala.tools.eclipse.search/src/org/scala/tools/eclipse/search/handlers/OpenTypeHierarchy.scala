@@ -12,7 +12,6 @@ import org.scala.tools.eclipse.search.ui.DialogErrorReporter
 import org.scala.tools.eclipse.search.ui.TypeHierarchyView
 import org.scalaide.util.Utils.WithAsInstanceOfOpt
 import org.eclipse.ui.handlers.HandlerUtil
-import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.Location
 import org.eclipse.core.runtime.jobs.Job
 import org.eclipse.core.runtime.IProgressMonitor
@@ -22,6 +21,7 @@ import org.eclipse.swt.widgets.Display
 import org.scala.tools.eclipse.search.searching.ProjectFinder
 import org.scalaide.core.IScalaPlugin
 import org.scala.tools.eclipse.search.searching.Scope
+import org.scalaide.ui.editor.InteractiveCompilationUnitEditor
 
 class OpenTypeHierarchy
   extends AbstractHandler
@@ -35,7 +35,7 @@ class OpenTypeHierarchy
     for {
       // For the selection
       editor      <- Option(HandlerUtil.getActiveEditor(event)) onEmpty reporter.reportError("An editor has to be active")
-      scalaEditor <- editor.asInstanceOfOpt[ScalaSourceFileEditor] onEmpty reporter.reportError("Active editor wasn't a Scala editor")
+      scalaEditor <- editor.asInstanceOfOpt[InteractiveCompilationUnitEditor] onEmpty reporter.reportError("Active editor wasn't a Scala editor")
       selection   <- UIUtil.getSelection(scalaEditor) onEmpty reporter.reportError("You need to have a selection")
     } {
       // Get the relevant scope to search for sub-types in.

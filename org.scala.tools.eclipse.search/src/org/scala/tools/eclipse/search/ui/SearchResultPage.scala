@@ -2,7 +2,6 @@ package org.scala.tools.eclipse.search
 package ui
 
 import scala.reflect.runtime.universe
-import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scalaide.logging.HasLogger
 import org.scalaide.util.Utils.WithAsInstanceOfOpt
 
@@ -20,6 +19,7 @@ import org.scala.tools.eclipse.search.Util
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Hit
 import org.scala.tools.eclipse.search.searching.Uncertain
+import org.scalaide.ui.editor.InteractiveCompilationUnitEditor
 
 /**
  * The page that is responsible for displaying the results of executing
@@ -90,7 +90,7 @@ class SearchResultPage
       val input = new FileEditorInput(file)
       desc      <- Option(IDE.getEditorDescriptor(file.getName()))
       part      <- Option(IDE.openEditor(page, input, desc.getId()))
-      editor <- part.asInstanceOfOpt[ScalaSourceFileEditor]
+      editor <- part.asInstanceOfOpt[InteractiveCompilationUnitEditor]
     } yield {
       editor.selectAndReveal(hit.offset, hit.word.length)
     }) getOrElse {

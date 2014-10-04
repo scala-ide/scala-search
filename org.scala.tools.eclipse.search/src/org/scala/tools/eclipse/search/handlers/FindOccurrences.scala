@@ -22,16 +22,15 @@ import org.scala.tools.eclipse.search.ui.SearchResult
 import org.scala.tools.eclipse.search.searching.SearchPresentationCompiler
 import org.scala.tools.eclipse.search.indexing.SearchFailure
 import org.scalaide.util.Utils.WithAsInstanceOfOpt
-import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Uncertain
-import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scala.tools.eclipse.search.searching.Confidence
 import org.eclipse.search.ui.text.Match
 import org.scalaide.core.IScalaProject
 import org.scala.tools.eclipse.search.searching.ProjectFinder
 import org.scalaide.core.IScalaPlugin
 import org.scala.tools.eclipse.search.searching.Scope
+import org.scalaide.ui.editor.InteractiveCompilationUnitEditor
 
 class FindOccurrences
   extends AbstractHandler
@@ -43,7 +42,7 @@ class FindOccurrences
   override def execute(event: ExecutionEvent): Object = {
     for {
       editor      <- Option(HandlerUtil.getActiveEditor(event)) onEmpty reporter.reportError("An editor has to be active")
-      scalaEditor <- editor.asInstanceOfOpt[ScalaSourceFileEditor] onEmpty reporter.reportError("Active editor wasn't a Scala editor")
+      scalaEditor <- editor.asInstanceOfOpt[InteractiveCompilationUnitEditor] onEmpty reporter.reportError("Active editor wasn't a Scala editor")
       selection   <- UIUtil.getSelection(scalaEditor) onEmpty reporter.reportError("You need to have a selection")
     } {
       scalaEditor.getInteractiveCompilationUnit.withSourceFile { (_, pc) =>

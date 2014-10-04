@@ -21,10 +21,10 @@ import org.scalaide.util.Utils.WithAsInstanceOfOpt
 import org.eclipse.jdt.internal.ui.JavaPlugin
 import org.eclipse.ui.part.FileEditorInput
 import org.eclipse.ui.ide.IDE
-import org.scalaide.ui.internal.editor.ScalaSourceFileEditor
 import org.scalaide.core.IScalaProject
 import org.scala.tools.eclipse.search.searching.Scope
 import org.scala.tools.eclipse.search.searching.Certain
+import org.scalaide.ui.editor.InteractiveCompilationUnitEditor
 
 /**
  * This view presents a type hierarchy of a given type. The view consists of
@@ -137,7 +137,7 @@ class TypeHierarchyView extends ViewPart with HasLogger {
           val input = new FileEditorInput(file)
           desc      <- Option(IDE.getEditorDescriptor(file.getName()))
           part      <- Option(IDE.openEditor(page, input, desc.getId()))
-          editor <- part.asInstanceOfOpt[ScalaSourceFileEditor]
+          editor <- part.asInstanceOfOpt[InteractiveCompilationUnitEditor]
         } {
           editor.selectAndReveal(location.offset, node.elem.value.name.length)
         })
