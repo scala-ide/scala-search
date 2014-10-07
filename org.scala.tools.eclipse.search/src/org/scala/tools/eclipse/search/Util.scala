@@ -1,19 +1,19 @@
 package org.scala.tools.eclipse.search
 
 import org.scalaide.core.compiler.InteractiveCompilationUnit
-import org.scalaide.core.internal.jdt.model.ScalaSourceFile
 import org.scalaide.logging.HasLogger
 import org.eclipse.core.resources.IFile
 import scala.reflect.io.AbstractFile
 import org.eclipse.core.resources.ResourcesPlugin
 import org.eclipse.core.runtime.Path
+import org.scalaide.core.extensions.SourceFileProviderRegistry
 
 /**
  * Object that contains various utility methods
  */
 object Util extends HasLogger {
 
-  def scalaSourceFileFromAbstractFile(file: AbstractFile): Option[ScalaSourceFile] = {
+  def scalaSourceFileFromAbstractFile(file: AbstractFile): Option[InteractiveCompilationUnit] = {
 
     for {
       abstractFile <- Option(file) onEmpty
@@ -28,9 +28,9 @@ object Util extends HasLogger {
     } yield scalaFile
   }
 
-  def scalaSourceFileFromIFile(file: IFile): Option[ScalaSourceFile] = {
-    val path = file.getFullPath().toOSString()
-    ScalaSourceFile.createFromPath(path)
+  def scalaSourceFileFromIFile(file: IFile): Option[InteractiveCompilationUnit] = {
+    val path = file.getFullPath()
+    Option(SourceFileProviderRegistry.getProvider(path)).flatMap(_.createFrom(path))
   }
 
   def getWorkspaceFile(cu: InteractiveCompilationUnit): Option[IFile] = {
