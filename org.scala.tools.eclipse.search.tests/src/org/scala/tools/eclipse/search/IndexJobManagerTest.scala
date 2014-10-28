@@ -13,6 +13,7 @@ import org.eclipse.core.runtime.Path
 import java.util.concurrent.CountDownLatch
 import org.eclipse.core.resources.IProject
 import org.scalaide.core.IScalaPlugin
+import org.junit.Ignore
 
 class IndexJobManagerTest {
 
@@ -182,7 +183,7 @@ class IndexJobManagerTest {
     observer.stop
   }
 
-  @Test
+  @Test @Ignore("Flaky test, failing very often on Linux with OpenJDK")
   def deletesIndexWhenProjectIsDeleted() {
     val name = "IndexJobManagerTest-ToBeDeletedIndex"
     val fileName = "Test.scala"
