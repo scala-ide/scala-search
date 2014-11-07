@@ -54,7 +54,8 @@ sealed trait TypeEntity extends Entity {
   def displayName: String
 
   def supertypes: Seq[TypeEntity]
-
+  
+  def qualifiedName: String
 }
 
 trait NameExtractor[A <: Entity] {

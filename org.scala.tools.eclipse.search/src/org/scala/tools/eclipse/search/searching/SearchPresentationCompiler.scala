@@ -60,6 +60,12 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
     } yield entityOpt
   }
 
+  private def typeNameFrom(sym: pc.Symbol) = {
+    val qname = sym.tpe.toString()
+    val nqname = if (sym.isModule) qname.replace(".type", "") else qname
+    nqname.split('.').lastOption.getOrElse(nqname)
+  }
+
   /**
    * Given a symbol, create the proper instance of Entity that can safely be
    * used by clients.
@@ -79,24 +85,18 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
 
     } yield Location(file, offset)
 
-    val nme = getName(symbol)
-
-    val typeName = {
-      val full = symbol.tpe.toString
-      full.split('.').lastOption.getOrElse(full)
-    }
-
     trait EntityImpl { this: Entity =>
       protected final val sym = symbol // Have to do this to avoid compiler bug.
-      override def name = nme
-      override def location = loc
+      override val name = getName(sym)
+      override val location = loc
       override def isReference(loc: Location) = createSymbolComparator(sym).isSameAs(loc)
-      override def alternativeNames = possibleNames(sym).getOrElse(List(name))
+      override val alternativeNames = possibleNames(sym).getOrElse(List(name))
     }
 
     trait TypeEntityImpl extends EntityImpl { this: TypeEntity =>
-      override def displayName = typeName
-      override def supertypes = directSupertypes(sym)
+      override val displayName = typeNameFrom(sym)
+      override val supertypes = directSupertypes(sym)
+      override val qualifiedName = sym.tpe.toString()
     }
 
     // Make sure the symbol is initialized
@@ -105,7 +105,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
     if (symbol.isJavaInterface) new Interface with TypeEntityImpl
     else if (symbol.isTrait) new Trait with TypeEntityImpl
     else if (symbol.isClass) new Class with TypeEntityImpl { override val isAbstract = sym.isAbstractClass }
-    else if (symbol.isModule) new Module with TypeEntityImpl { override def displayName = name }
+    else if (symbol.isModule) new Module with TypeEntityImpl { override val name = displayName }
     else if (symbol.isType) new Type with TypeEntityImpl
     else if (symbol.isMethod) new Method with EntityImpl
     else if (symbol.isVal) new Val with EntityImpl

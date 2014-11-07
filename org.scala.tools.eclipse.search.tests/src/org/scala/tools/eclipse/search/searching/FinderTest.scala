@@ -262,7 +262,16 @@ class FinderTest {
     trait B extends A
     object B extends A
     trait C extends B
-  """}(List("B"))
+  """}(List("B", "B"))
+
+  @Test
+  def findAllSubclasses_worksWithSameNameInDifferentPackages = subclassesNamed("WorksWithSameNameInDifferentPackage") {"""
+    trait |A
+    trait B extends A
+    package test {
+      trait B extends A
+    }
+  """}(List("B", "B"))
 
   @Test
   def findAllSubclasses_worksWithTypesFromSTDLib = subclassesNamed("FindAllSubclassesWorksWithTypesFromSTDLib") {"""

@@ -95,8 +95,8 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
         val maybeEntity = spc.declarationContaining(Location(hit.cu, hit.offset)).right.toOption.flatten
         //TODO: Report error
         maybeEntity match {
-          case Some(x: TypeEntity) if x.name != entity.name && !alreadyReportedNames.contains(x.name) =>
-            alreadyReportedNames.append(x.name)
+          case Some(x: TypeEntity) if x.qualifiedName != entity.qualifiedName && !alreadyReportedNames.contains(x.qualifiedName) =>
+            alreadyReportedNames.append(x.qualifiedName)
             x
           case _ => null
         }
