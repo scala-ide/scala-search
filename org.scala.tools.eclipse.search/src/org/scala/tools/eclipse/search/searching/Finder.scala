@@ -98,7 +98,7 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
           case Some(x: TypeEntity) if x.name != entity.name && !alreadyReportedNames.contains(x.name) =>
             alreadyReportedNames.append(x.name)
             x
-          case None => null
+          case _ => null
         }
       }
     }

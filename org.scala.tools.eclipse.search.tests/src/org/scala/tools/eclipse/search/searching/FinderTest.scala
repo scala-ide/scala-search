@@ -257,6 +257,14 @@ class FinderTest {
   """}(List("Bar")) // make sure Foo isn't listed twice.
 
   @Test
+  def findAllSubclasses_worksWithCollidingNames = subclassesNamed("WorksWithCollidingNames") {"""
+    trait |A
+    trait B extends A
+    object B extends A
+    trait C extends B
+  """}(List("B"))
+
+  @Test
   def findAllSubclasses_worksWithTypesFromSTDLib = subclassesNamed("FindAllSubclassesWorksWithTypesFromSTDLib") {"""
     trait StringOrdering extends |Ordering[String]
   """}(List("StringOrdering"))
