@@ -20,5 +20,6 @@ import org.scala.tools.eclipse.search.searching._
   ,classOf[SearchPresentationCompilerTest]
   ,classOf[ProjectFinderTest]
   ,classOf[FinderTest]
+  ,classOf[TypeEntityTest]
 ))
 class TestsSuite {}

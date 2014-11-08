@@ -17,6 +17,8 @@ import org.eclipse.jdt.ui.JavaUI
 import org.eclipse.jdt.ui.JavaElementImageDescriptor
 import org.eclipse.jface.viewers.DecorationOverlayIcon
 import org.eclipse.jface.viewers.IDecoration
+import org.eclipse.swt.graphics.Point
+import org.scala.tools.eclipse.search.searching.EvaluatedNode
 
 /**
  * Used by the TypeHierarchyView to produce the labels that are shown in the super- and
@@ -50,6 +52,13 @@ class TypeHierarchyTreeLabelProvider(leafLabel: String) extends StyledCellLabelP
     cell.setStyleRanges(text.getStyleRanges)
     super.update(cell)
   }
+
+  override def getToolTipText(elem: Object): String = elem match {
+    case EvaluatedNode(c) => c.value.longDisplayName
+    case _ => null
+  }
+
+  override def getToolTipDisplayDelayTime(elem: Any) = 100
 
   private def setEntity(cell: ViewerCell, text: StyledString, entity: TypeEntity): Unit = {
     entity match {

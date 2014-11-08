@@ -54,8 +54,18 @@ sealed trait TypeEntity extends Entity {
   def displayName: String
 
   def supertypes: Seq[TypeEntity]
-  
+
   def qualifiedName: String
+
+  def longDisplayName = TypeEntity.toLongDisplayName(qualifiedName)
+}
+
+object TypeEntity {
+  private val PtnQname = """(.+?)(?:\.type)?""".r
+
+  def toLongDisplayName(qualifiedName: String): String = qualifiedName match {
+    case PtnQname(name) => name
+  }
 }
 
 trait NameExtractor[A <: Entity] {
