@@ -86,17 +86,16 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
     } yield Location(file, offset)
 
     trait EntityImpl { this: Entity =>
-      protected final val sym = symbol // Have to do this to avoid compiler bug.
-      override val name = getName(sym)
+      override val name = getName(symbol)
       override val location = loc
-      override def isReference(loc: Location) = createSymbolComparator(sym).isSameAs(loc)
-      override val alternativeNames = possibleNames(sym).getOrElse(List(name))
+      override def isReference(loc: Location) = createSymbolComparator(symbol).isSameAs(loc)
+      override val alternativeNames = possibleNames(symbol).getOrElse(List(name))
     }
 
     trait TypeEntityImpl extends EntityImpl { this: TypeEntity =>
-      override val displayName = typeNameFrom(sym)
-      override val supertypes = directSupertypes(sym)
-      override val qualifiedName = sym.tpe.toString()
+      override val displayName = typeNameFrom(symbol)
+      override val supertypes = directSupertypes(symbol)
+      override val qualifiedName = symbol.tpe.toString()
     }
 
     // Make sure the symbol is initialized
@@ -104,7 +103,7 @@ class SearchPresentationCompiler(val pc: IScalaPresentationCompiler) extends Has
 
     if (symbol.isJavaInterface) new Interface with TypeEntityImpl
     else if (symbol.isTrait) new Trait with TypeEntityImpl
-    else if (symbol.isClass) new Class with TypeEntityImpl { override val isAbstract = sym.isAbstractClass }
+    else if (symbol.isClass) new Class with TypeEntityImpl { override val isAbstract = symbol.isAbstractClass }
     else if (symbol.isModule) new Module with TypeEntityImpl { override val name = displayName }
     else if (symbol.isType) new Type with TypeEntityImpl
     else if (symbol.isMethod) new Method with EntityImpl
