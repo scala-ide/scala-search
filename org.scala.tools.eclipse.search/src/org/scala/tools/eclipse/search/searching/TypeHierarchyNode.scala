@@ -4,7 +4,7 @@ package searching
 /**
  * Tree structure that represents a lazy type-hierarchy.
  *
- * - EvaluatedNode: Is a node in the hierarchy that has alredy been
+ * - EvaluatedNode: Is a node in the hierarchy that has already been
  *   evaluated so know the sub-types of the given node.
  * - EvaluatingNode: Is used when it is finding the sub-types of a
  *   of the node. This is used to show a small text to the user
