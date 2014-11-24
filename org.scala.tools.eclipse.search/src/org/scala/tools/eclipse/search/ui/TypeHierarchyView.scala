@@ -25,6 +25,8 @@ import org.scalaide.core.IScalaProject
 import org.scala.tools.eclipse.search.searching.Scope
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scalaide.ui.editor.InteractiveCompilationUnitEditor
+import org.eclipse.jface.viewers.ColumnViewer
+import org.eclipse.jface.viewers.ColumnViewerToolTipSupport
 
 /**
  * This view presents a type hierarchy of a given type. The view consists of
@@ -100,6 +102,8 @@ class TypeHierarchyView extends ViewPart with HasLogger {
         leafLabel = "No Sub-types"
     ))
 
+    ColumnViewerToolTipSupport.enableFor(superclasses)
+    ColumnViewerToolTipSupport.enableFor(subclasses)
     // disabled as displaying of members isn't yet implemented
     // addInspectorView(parent)
   }
@@ -114,13 +118,14 @@ class TypeHierarchyView extends ViewPart with HasLogger {
 //    configure(inspector)
 //  }
 
-  private def configure(viewer: Viewer): Unit = {
+  private def configure(viewer: TreeViewer): Unit = {
     val data = new GridData()
     data.heightHint = (viewer.getControl.getParent().getSize().y / 3) // LOL! Uses y to represent the height of the view.
     data.verticalAlignment = GridData.FILL
     data.horizontalAlignment = GridData.FILL
     data.grabExcessHorizontalSpace = true
     data.grabExcessVerticalSpace = true
+
     viewer.getControl.setLayoutData(data)
   }
 
