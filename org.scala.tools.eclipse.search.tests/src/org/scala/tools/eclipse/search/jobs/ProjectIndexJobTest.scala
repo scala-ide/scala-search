@@ -40,7 +40,7 @@ class ProjectIndexJobTest {
     val latch = new CountDownLatch(1)
 
     val config = mockedSuccessfullIndexerConfigReIndexing
-    when(config.indexProject(project)).thenReturn(Success())
+    when(config.indexProject(project)).thenReturn(Success(()))
 
     val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
@@ -59,7 +59,7 @@ class ProjectIndexJobTest {
     val arg = mocks.args.fileNamed("Change.scala")
 
     val config = mockedSuccessfullIndexerConfigNoReindexing
-    when(config.indexIFile(Matchers.argThat(arg))).thenReturn(Success())
+    when(config.indexIFile(Matchers.argThat(arg))).thenReturn(Success(()))
 
     val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
@@ -105,7 +105,7 @@ class ProjectIndexJobTest {
 
     when(config.index.removeOccurrencesFromFile(
         Matchers.argThat(arg),
-        Matchers.eq(project))).thenReturn(Success())
+        Matchers.eq(project))).thenReturn(Success(()))
 
     val job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
@@ -122,7 +122,6 @@ class ProjectIndexJobTest {
         Matchers.argThat(arg),
         Matchers.eq(project))
   }
-
 
   @Test def invalidPCExceptionWhenIndexing() {
     // When indexing a project fails with an InvalidPresentationCompilerException we
@@ -197,7 +196,6 @@ object ProjectIndexJobTest
   class TestIndex extends Index {
     override val base: IPath = new Path(mkPath("target","project-index-job-test"))
   }
-
 
   def mockedSuccessfullIndexerConfig = {
     val index = mock(classOf[TestIndex])
