@@ -39,6 +39,8 @@ import scala.util.Success
 import scala.util.Failure
 import scala.collection.mutable.ArraySeq
 import org.scala.tools.eclipse.search.searching.Scope
+import org.apache.lucene.store.Directory
+import org.apache.lucene.index.CheckIndex
 
 trait SearchFailure
 case class BrokenIndex(project: IScalaProject) extends SearchFailure
@@ -77,6 +79,15 @@ trait Index extends HasLogger {
 
   def indexExists(project: IProject): Boolean = {
     location(project).toFile.exists
+  }
+
+  def indexIsClean(project: IProject): Boolean = {
+    val loc = location(project).toFile().toPath()
+    using(FSDirectory.open(loc), handlers = IOToTry[Boolean]) { dir =>
+      using(new CheckIndex(dir), handlers = IOToTry[Boolean]) { ci =>
+        Try(ci.checkIndex().clean)
+      }  
+    }.getOrElse(false)
   }
 
   def deleteIndex(project: IProject): Try[Boolean] = {

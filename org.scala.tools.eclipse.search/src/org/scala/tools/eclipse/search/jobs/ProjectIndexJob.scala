@@ -85,7 +85,7 @@ class ProjectIndexJob private (
     val shouldIndex = for {
       proj <- Option(project)
     } yield {
-      !indexer.index.indexExists(proj.underlying)
+      !indexer.index.indexExists(proj.underlying) || !indexer.index.indexIsClean(proj.underlying)
     }
 
     if (shouldIndex.getOrElse(false)) {
