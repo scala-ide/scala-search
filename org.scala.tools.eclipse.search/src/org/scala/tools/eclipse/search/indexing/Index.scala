@@ -81,7 +81,7 @@ trait Index extends HasLogger {
     location(project).toFile.exists
   }
 
-  def indexIsClean(project: IProject): Boolean = {
+  def isIndexClean(project: IProject): Boolean = {
     val loc = location(project).toFile().toPath()
     using(FSDirectory.open(loc), handlers = IOToTry[Boolean]) { dir =>
       using(new CheckIndex(dir), handlers = IOToTry[Boolean]) { ci =>
