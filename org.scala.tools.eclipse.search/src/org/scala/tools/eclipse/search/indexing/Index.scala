@@ -39,6 +39,8 @@ import scala.util.Success
 import scala.util.Failure
 import scala.collection.mutable.ArraySeq
 import org.scala.tools.eclipse.search.searching.Scope
+import org.apache.lucene.store.Directory
+import org.apache.lucene.index.CheckIndex
 
 trait SearchFailure
 case class BrokenIndex(project: IScalaProject) extends SearchFailure
@@ -79,6 +81,15 @@ trait Index extends HasLogger {
     location(project).toFile.exists
   }
 
+  def isIndexClean(project: IProject): Boolean = {
+    val loc = location(project).toFile().toPath()
+    using(FSDirectory.open(loc), handlers = IOToTry[Boolean]) { dir =>
+      using(new CheckIndex(dir), handlers = IOToTry[Boolean]) { ci =>
+        Try(ci.checkIndex().clean)
+      }  
+    }.getOrElse(false)
+  }
+
   def deleteIndex(project: IProject): Try[Boolean] = {
 
     def deleteRec(f: File): Boolean = {
@@ -102,8 +113,8 @@ trait Index extends HasLogger {
   protected case class InvalidDocument(doc: Document) extends ConversionError
 
   protected def config = {
-    val analyzer = new SimpleAnalyzer(Version.LUCENE_41)
-    new IndexWriterConfig(Version.LUCENE_41, analyzer)
+    val analyzer = new SimpleAnalyzer()
+    new IndexWriterConfig(analyzer)
   }
 
   //  TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001661-make-max-number-of-matches-configurable
@@ -233,7 +244,7 @@ trait Index extends HasLogger {
    * on IndexWriter `f` is using.
    */
   protected def doWithWriter(project: IScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
-    val loc = location(project.underlying).toFile()
+    val loc = location(project.underlying).toFile().toPath()
     using(FSDirectory.open(loc), handlers = IOToTry[Unit]) { dir =>
       using(new IndexWriter(dir, config), handlers = IOToTry[Unit]) { writer =>
         Try(f(writer))
@@ -251,7 +262,7 @@ trait Index extends HasLogger {
    * on IndexSearcher `f` is using.
    */
   protected def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
-    val loc = location(project.underlying).toFile()
+    val loc = location(project.underlying).toFile().toPath()
     using(FSDirectory.open(loc), handlers = IOToTry[A]) { dir =>
       using(DirectoryReader.open(dir), handlers = IOToTry[A]) { reader =>
         val searcher = new IndexSearcher(reader)
