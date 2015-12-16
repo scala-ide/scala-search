@@ -6,7 +6,7 @@ import scala.Array.fallbackCanBuildFrom
 import scala.collection.JavaConverters.asJavaIterableConverter
 import org.scalaide.logging.HasLogger
 import scala.util.Try
-import scala.util.control.{Exception => Ex}
+import scala.util.control.{ Exception => Ex }
 import scala.util.control.Exception.Catch
 import org.apache.lucene.analysis.core.SimpleAnalyzer
 import org.apache.lucene.document.Document
@@ -74,7 +74,7 @@ trait Index extends HasLogger {
    */
   def isIndexable(file: IFile): Boolean = {
     // TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001616
-    Option(file).filter(_.exists).map( _.getFileExtension() == "scala").getOrElse(false)
+    Option(file).filter(_.exists).map(_.getFileExtension() == "scala").getOrElse(false)
   }
 
   def indexExists(project: IProject): Boolean = {
@@ -86,7 +86,7 @@ trait Index extends HasLogger {
     using(FSDirectory.open(loc), handlers = IOToTry[Boolean]) { dir =>
       using(new CheckIndex(dir), handlers = IOToTry[Boolean]) { ci =>
         Try(ci.checkIndex().clean)
-      }  
+      }
     }.getOrElse(false)
   }
 
@@ -140,17 +140,17 @@ trait Index extends HasLogger {
   }
 
   /**
-    * Search the projects for all occurrence of the `word` that are found in declarations.
-    */
-   def findDeclarations(word: String, scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
-     val query = new BooleanQuery()
-     query.add(new TermQuery(Terms.isDeclaration), BooleanClause.Occur.MUST)
-     query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
+   * Search the projects for all occurrence of the `word` that are found in declarations.
+   */
+  def findDeclarations(word: String, scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
+    val query = new BooleanQuery()
+    query.add(new TermQuery(Terms.isDeclaration), BooleanClause.Occur.MUST)
+    query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
 
-     val resuts = queryScope(query, scope)
+    val resuts = queryScope(query, scope)
 
-     groupSearchResults(resuts.seq)
-   }
+    groupSearchResults(resuts.seq)
+  }
 
   /**
    * Search the relevant project indices for all occurrences of the given words.
@@ -165,8 +165,8 @@ trait Index extends HasLogger {
     val innerQuery = new BooleanQuery()
     for { w <- words } {
       innerQuery.add(
-          new TermQuery(Terms.exactWord(w)),
-          BooleanClause.Occur.SHOULD)
+        new TermQuery(Terms.exactWord(w)),
+        BooleanClause.Occur.SHOULD)
     }
     query.add(innerQuery, BooleanClause.Occur.MUST)
 
@@ -177,9 +177,9 @@ trait Index extends HasLogger {
 
   private def queryScope(query: BooleanQuery, scope: Scope): Set[(IScalaProject, Try[ArraySeq[Occurrence]])] = {
     scope.projects.par.map { project =>
-      val resultsForProject = withSearcher(project){ searcher =>
+      val resultsForProject = withSearcher(project) { searcher =>
         for {
-          hit        <- searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
+          hit <- searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
           occurrence <- fromDocument(searcher.doc(hit.doc)).right.toOption
         } yield occurrence
       }
@@ -189,11 +189,11 @@ trait Index extends HasLogger {
 
   private def groupSearchResults(results: Set[(IScalaProject, Try[ArraySeq[Occurrence]])]): (Seq[Occurrence], Seq[SearchFailure]) = {
     val initial: (Seq[Occurrence], Seq[SearchFailure]) = (Nil, Nil)
-    results.foldLeft(initial) { (acc, t: (IScalaProject,Try[Seq[Occurrence]])) =>
+    results.foldLeft(initial) { (acc, t: (IScalaProject, Try[Seq[Occurrence]])) =>
       val (occurrences, failures) = acc
       t match {
         case (_, Success(xs)) => (occurrences ++ xs, failures)
-        case (p, Failure(_))  => (occurrences, BrokenIndex(p) +: failures)
+        case (p, Failure(_)) => (occurrences, BrokenIndex(p) +: failures)
       }
     }
   }
@@ -210,7 +210,7 @@ trait Index extends HasLogger {
    */
   def addOccurrences(occurrences: Seq[Occurrence], project: IScalaProject): Try[Unit] = {
     doWithWriter(project) { writer =>
-      val docs = occurrences.map( toDocument(project.underlying, _) )
+      val docs = occurrences.map(toDocument(project.underlying, _))
       writer.addDocuments(docs.toIterable.asJava)
     }
   }
@@ -314,7 +314,7 @@ trait Index extends HasLogger {
 
     def persist(key: String, value: String) =
       doc.add(new Field(key, value,
-          Field.Store.YES, Field.Index.NOT_ANALYZED))
+        Field.Store.YES, Field.Index.NOT_ANALYZED))
 
     persist(WORD, o.word)
     persist(PATH, o.file.workspaceFile.getProjectRelativePath().toPortableString())
@@ -323,6 +323,9 @@ trait Index extends HasLogger {
     persist(LINE_CONTENT, o.lineContent)
     persist(IS_IN_SUPER_POSITION, o.isInSuperPosition.toString)
     persist(PROJECT_NAME, project.getName)
+    o.callerOffset.map { co =>
+      persist(CALLER_OFFSET, co.toString())
+    }
 
     doc
   }
@@ -338,7 +341,7 @@ trait Index extends HasLogger {
   protected def fromDocument(doc: Document): Either[ConversionError, Occurrence] = {
 
     def convertToBoolean(str: String) = str match {
-      case "true"  => true
+      case "true" => true
       case "false" => false
       case x =>
         logger.debug(s"Expected true/false when converting document, but got $x")
@@ -347,21 +350,24 @@ trait Index extends HasLogger {
 
     import LuceneFields._
     (for {
-      word           <- Option(doc.get(WORD))
-      path           <- Option(doc.get(PATH))
-      offset         <- Option(doc.get(OFFSET))
+      word <- Option(doc.get(WORD))
+      path <- Option(doc.get(PATH))
+      offset <- Option(doc.get(OFFSET))
       occurrenceKind <- Option(doc.get(OCCURRENCE_KIND))
-      lineContent    <- Option(doc.get(LINE_CONTENT))
-      projectName    <- Option(doc.get(PROJECT_NAME))
-      isSuper        <- Option(doc.get(IS_IN_SUPER_POSITION)).map(convertToBoolean)
+      lineContent <- Option(doc.get(LINE_CONTENT))
+      projectName <- Option(doc.get(PROJECT_NAME))
+      isSuper <- Option(doc.get(IS_IN_SUPER_POSITION)).map(convertToBoolean)
+
     } yield {
       val root = ResourcesPlugin.getWorkspace().getRoot()
       (for {
-        project        <- Option(root.getProject(projectName))
-        ifile          <- Option(project.getFile(Path.fromPortableString(path)))
-        file           <- Util.scalaSourceFileFromIFile(ifile) if ifile.exists
+        project <- Option(root.getProject(projectName))
+        ifile <- Option(project.getFile(Path.fromPortableString(path)))
+        file <- Util.scalaSourceFileFromIFile(ifile) if ifile.exists
       } yield {
-        Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind), lineContent, isSuper)
+        val ci: Option[Int] = Option(doc.get(CALLER_OFFSET)).map(Integer.parseInt(_))
+
+        Occurrence(word, file, Integer.parseInt(offset), OccurrenceKind.fromString(occurrenceKind), lineContent, isSuper, ci)
       }).fold {
         // The file or project apparently no longer exists. This can happen
         // if the project/file has been deleted/renamed and a search is

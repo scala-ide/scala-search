@@ -20,13 +20,14 @@ case object Declaration extends OccurrenceKind
 case object Reference extends OccurrenceKind
 
 object LuceneFields {
-  val WORD                 = "word"
-  val PATH                 = "path"
-  val OFFSET               = "offset"
-  val OCCURRENCE_KIND      = "occurrenceKind"
-  val PROJECT_NAME         = "project"
-  val LINE_CONTENT         = "lineContent"
+  val WORD = "word"
+  val PATH = "path"
+  val OFFSET = "offset"
+  val OCCURRENCE_KIND = "occurrenceKind"
+  val PROJECT_NAME = "project"
+  val LINE_CONTENT = "lineContent"
   val IS_IN_SUPER_POSITION = "isInSuperPosition"
+  val CALLER_OFFSET = "callerOffset"
 }
 
 /**
@@ -39,25 +40,27 @@ case class Occurrence(
     offset: Int, // char offset from beginning of file
     occurrenceKind: OccurrenceKind,
     lineContent: String = "",
-    isInSuperPosition: Boolean = false) {
+    isInSuperPosition: Boolean = false,
+    callerOffset: Option[Int] = None) {
 
   override def equals(other: Any) = other match {
     // Don't compare lineCOntent
     case o: Occurrence =>
       word == o.word &&
-      file == o.file &&
-      offset == o.offset &&
-      occurrenceKind == o.occurrenceKind &&
-      isInSuperPosition == o.isInSuperPosition
+        file == o.file &&
+        offset == o.offset &&
+        occurrenceKind == o.occurrenceKind &&
+        isInSuperPosition == o.isInSuperPosition &&
+        callerOffset == o.callerOffset
     case _ => false
   }
 
   override def toString = "%s in %s at char %s %s".format(
-      word,
-      Util.getWorkspaceFile(file).map(_.getProjectRelativePath().toString()).getOrElse("File is deleted"),
-      offset.toString,
-      occurrenceKind.toString)
+    word,
+    Util.getWorkspaceFile(file).map(_.getProjectRelativePath().toString()).getOrElse("File is deleted"),
+    offset.toString,
+    occurrenceKind.toString)
 
-  def toHit = Hit(file, word, lineContent, offset)
+  def toHit = Hit(file, word, lineContent, offset, callerOffset)
 
 }

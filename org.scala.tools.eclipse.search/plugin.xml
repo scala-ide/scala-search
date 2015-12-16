@@ -9,6 +9,13 @@
           name="Type Hierarchy"
           class="org.scala.tools.eclipse.search.ui.TypeHierarchyView"
           icon="icons/type-hierarchy-scala.gif" />
+    <view
+          category="org.scala-ide.sdt.core.viewCategory"
+          class="org.scala.tools.eclipse.search.ui.CallHierarchyView"
+          id="org.scala.tools.eclipse.search.ui.CallHierarchyView"
+          name="Call Hierarchy"
+          restorable="true">
+    </view>
   </extension>
 
   <!-- Search pages extension point -->
@@ -54,6 +61,12 @@
              description="Open Type Hierarchy"
              categoryId="org.scala.tools.eclipse.search.commands"
              id="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy"/>
+    <command
+          categoryId="org.scala.tools.eclipse.search.commands"
+          description="Open Call Hierarchy"
+          id="org.scala.tools.eclipse.search.commands.OpenCallHierarchy"
+          name="Open Call Hierarchy">
+    </command>
   </extension>
 
   <!-- Handlers -->
@@ -64,6 +77,9 @@
     <handler
              class="org.scala.tools.eclipse.search.handlers.OpenTypeHierarchy"
              commandId="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy" />
+    <handler
+             class="org.scala.tools.eclipse.search.handlers.OpenCallHierarchy"
+             commandId="org.scala.tools.eclipse.search.commands.OpenCallHierarchy" />
   </extension>
 
   <!-- Menus -->
@@ -79,6 +95,11 @@
                id="org.scala.tools.eclipse.search.menus.typehiearchy"
                label="Open Type Hierarchy"
                tooltip="" />
+      <command
+            commandId="org.scala.tools.eclipse.search.commands.OpenCallHierarchy"
+            id="org.scala.tools.eclipse.search.menus.callhiearchy"
+            label="Open Call Hierarchy">
+      </command>
     </menuContribution>
   </extension>
 

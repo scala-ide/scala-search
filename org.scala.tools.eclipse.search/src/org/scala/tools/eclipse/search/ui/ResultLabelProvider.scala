@@ -40,11 +40,11 @@ class ResultLabelProvider extends StyledCellLabelProvider with HasLogger {
         text.append(" (%s)".format(count), StyledString.COUNTER_STYLER)
         cell.setImage(ScalaImages.SCALA_FILE.createImage())
 
-      case LineNode(Certain(Hit(_,_,line, _))) =>
+      case LineNode(Certain(Hit(_,_,line, _, _))) =>
         val styled = new StyledString(line.trim)
         text.append(styled)
 
-      case LineNode(Uncertain(Hit(_,_,line,_))) =>
+      case LineNode(Uncertain(Hit(_,_,line,_,_))) =>
         val styled = new StyledString(line.trim)
         text.append(styled)
         text.append(" - Potential match", StyledString.QUALIFIER_STYLER)
