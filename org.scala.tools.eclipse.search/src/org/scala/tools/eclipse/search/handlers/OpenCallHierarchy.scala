@@ -48,7 +48,7 @@ class OpenCallHierarchy extends AbstractHandler with HasLogger {
 
     }
 
-    val view = PlatformUI.getWorkbench()
+    def view = PlatformUI.getWorkbench()
       .getActiveWorkbenchWindow()
       .getActivePage()
       .showView(CallHierarchyView.VIEW_ID)
@@ -65,10 +65,9 @@ class OpenCallHierarchy extends AbstractHandler with HasLogger {
       val scope = Scope(projects.map(IScalaPlugin().asScalaProject(_)).flatten)
       val loc = Location(scalaEditor.getInteractiveCompilationUnit, selection.getOffset())
 
-      val e = finder.entityAt(loc)
       val root = thview.input
       root.list = List()
-      e match {
+      finder.entityAt(loc) match {
         case Right(Some(entity: Method)) =>
           scheduleJob(entity, scope, root)
         case Right(Some(entity: Val)) =>
@@ -78,10 +77,10 @@ class OpenCallHierarchy extends AbstractHandler with HasLogger {
         case Right(Some(entity)) => reporter.reportError(s"Sorry, can't use selected '${entity.name}' to build a call-hierarchy.")
         case Right(None) => // No-op
         case Left(_) =>
-          reporter.reportError("Sorry, couldn't get the symbol of the given entity.\n\n" +
-            "This is very likely a bug, so please submit a bug report that contains\n" +
-            "a minimal example to https://www.assembla.com/spaces/scala-ide/tickets\n\n" +
-            "Thank you! - IDE Team")
+          reporter.reportError("""Couldn't get the symbol of the given entity.
+            |This is very likely a bug, so please submit a bug report that contains
+            |a minimal example to https://www.assembla.com/spaces/scala-ide/tickets
+            |Thank you! - IDE Team""".stripMargin)
       }
     }
 

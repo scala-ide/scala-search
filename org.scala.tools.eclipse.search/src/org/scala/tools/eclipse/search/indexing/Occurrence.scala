@@ -57,7 +57,7 @@ case class Occurrence(
 
   override def toString = "%s in %s at char %s %s".format(
     word,
-    Util.getWorkspaceFile(file).map(_.getProjectRelativePath().toString()).getOrElse("File is deleted"),
+    Util.getWorkspaceFile(file).map(_.getProjectRelativePath().toString()).getOrElse("deleted file"),
     offset.toString,
     occurrenceKind.toString)
 

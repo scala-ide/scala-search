@@ -58,6 +58,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
     indexManager.shutdown()
     indexManager = null
     SearchPlugin.finder = null
+    SearchPlugin.plugin = null
   }
 
 }

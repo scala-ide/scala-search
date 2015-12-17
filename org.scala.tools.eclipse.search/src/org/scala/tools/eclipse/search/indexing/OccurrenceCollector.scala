@@ -72,14 +72,14 @@ object OccurrenceCollector extends HasLogger {
             traverseTrees(mods.annotations)
             traverseTreess(args)
             traverse(body)
-            ci= ci.tail
+            ci = ci.tail
           // Val's and arguments.
           case ValDef(_, name, tpt, rhs) =>
             occurrences += mkOccurrence(name.decodedName.toString, Declaration)
             ci =  t.pos.point :: ci
             traverse(tpt)
             traverse(rhs)
-            ci= ci.tail
+            ci = ci.tail
           // Class and Trait definitions
           case ClassDef(_, name, _, Template(supers, ValDef(_,_,selfType,_), body)) =>
             occurrences += mkOccurrence(name.decodedName.toString, Declaration)

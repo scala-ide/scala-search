@@ -143,10 +143,10 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
   // The 'monitor' is needed to make it possible to cancel it and
   // report progress.
   private def processSame(
-    entity: Entity,
-    occurrences: Seq[Occurrence],
-    monitor: IProgressMonitor,
-    handler: Confidence[Hit] => Unit): Unit = {
+      entity: Entity,
+      occurrences: Seq[Occurrence],
+      monitor: IProgressMonitor,
+      handler: Confidence[Hit] => Unit): Unit = {
 
     for { occurrence <- occurrences if !monitor.isCanceled } {
       monitor.subTask(s"Checking ${occurrence.file.file.name}")
@@ -158,16 +158,6 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
       }
       monitor.worked(1)
     }
-  }
-
-  def getSymbolInfo(loc: Location): String = {
-    loc.cu.withSourceFile { (sf, pc) =>
-      val typed = new Response[pc.Tree]
-      val pos = new OffsetPosition(sf, loc.offset)
-      pc.askTypeAt(pos, typed)
-      ""
-
-    }.getOrElse("")
   }
   
   def findCallers(e: Entity, scope: Scope, handler: (Hit,  Entity, String, Option[String], IScalaProject) => Unit, monitor: IProgressMonitor): Unit = {
