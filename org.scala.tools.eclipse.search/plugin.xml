@@ -89,7 +89,7 @@
          commandId="org.scala.tools.eclipse.search.commands.FindReferences"
          schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
          contextId="scala.tools.eclipse.scalaEditorScope"
-         sequence="CTRL+ALT+SHIFT+R"/>
+         sequence="CTRL+SHIFT+G"/>
      <key
          commandId="org.scala.tools.eclipse.search.commands.OpenTypeHierarchy"
          schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
