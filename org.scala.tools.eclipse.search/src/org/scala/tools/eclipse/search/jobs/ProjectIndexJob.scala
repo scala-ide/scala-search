@@ -179,7 +179,7 @@ object ProjectIndexJob extends HasLogger {
 
     val job = new ProjectIndexJob(indexer, sp, interval, onStopped)
     job.setup()
-//    job.setSystem(true) // don't show in the UI
+    job.setSystem(true) // don't show in the UI
     job.setPriority(Job.LONG)
     job
   }
