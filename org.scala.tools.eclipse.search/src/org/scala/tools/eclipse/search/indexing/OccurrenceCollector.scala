@@ -50,10 +50,11 @@ object OccurrenceCollector extends HasLogger {
 
     val traverser = new Traverser {
       private var isSuper = false
+      private var ci:List[Int] = List()
       override def traverse(t: Tree) {
 
         // Avoid passing the same arguments all over.
-        def mkOccurrence = Occurrence(_: String, file, t.pos.point, _: OccurrenceKind, t.pos.lineContent, isSuper)
+        def mkOccurrence = Occurrence(_: String, file, t.pos.point, _: OccurrenceKind, t.pos.lineContent, isSuper, ci.headOption)
 
         t match {
 
@@ -67,16 +68,18 @@ object OccurrenceCollector extends HasLogger {
           // Method definitions
           case DefDef(mods, name, _, args, _, body) if !isSynthetic(pc)(t) =>
             occurrences += mkOccurrence(name.decodedName.toString, Declaration)
+            ci =  t.pos.point :: ci
             traverseTrees(mods.annotations)
             traverseTreess(args)
             traverse(body)
-
+            ci = ci.tail
           // Val's and arguments.
           case ValDef(_, name, tpt, rhs) =>
             occurrences += mkOccurrence(name.decodedName.toString, Declaration)
+            ci =  t.pos.point :: ci
             traverse(tpt)
             traverse(rhs)
-
+            ci = ci.tail
           // Class and Trait definitions
           case ClassDef(_, name, _, Template(supers, ValDef(_,_,selfType,_), body)) =>
             occurrences += mkOccurrence(name.decodedName.toString, Declaration)
@@ -93,7 +96,6 @@ object OccurrenceCollector extends HasLogger {
             traverseTrees(supers)
             isSuper = false
             traverseTrees(body)
-
           // Make sure that type arguments aren't listed as being in 'super-type' position
           case AppliedTypeTree(tpe, args) =>
             traverse(tpe)

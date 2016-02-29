@@ -6,7 +6,6 @@ import scala.reflect.internal.util.SourceFile
 import org.scalaide.core.IScalaPlugin
 import org.scalaide.core.IScalaProject
 import org.scalaide.logging.HasLogger
-
 import org.eclipse.core.runtime.IProgressMonitor
 import org.scala.tools.eclipse.search.Entity
 import org.scala.tools.eclipse.search.ErrorHandlingOption
@@ -16,6 +15,9 @@ import org.scala.tools.eclipse.search.indexing.Index
 import org.scala.tools.eclipse.search.indexing.Occurrence
 import org.scala.tools.eclipse.search.indexing.SearchFailure
 import scala.collection.mutable
+import scala.tools.nsc.interactive.Response
+import scala.reflect.internal.util.OffsetPosition
+import org.scalaide.core.compiler.IScalaPresentationCompiler
 
 /**
  * Component that provides various methods related to finding Scala entities.
@@ -65,9 +67,8 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
    *
    * Errors are passed to `errorHandler`.
    */
-  def findSubtypes(entity: TypeEntity, scope: Scope, monitor: IProgressMonitor)
-                  (handler: Confidence[TypeEntity] => Unit,
-                   errorHandler: SearchFailure => Unit = _ => ()): Unit = {
+  def findSubtypes(entity: TypeEntity, scope: Scope, monitor: IProgressMonitor)(handler: Confidence[TypeEntity] => Unit,
+    errorHandler: SearchFailure => Unit = _ => ()): Unit = {
 
     /*
      *  A short description of how we find the sub-types
@@ -90,7 +91,7 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
 
     // Get the declaration that contains the given `hit`.
     def getTypeEntity(hit: Hit): Option[TypeEntity] = {
-      hit.cu.withSourceFile { (sf,pc) =>
+      hit.cu.withSourceFile { (sf, pc) =>
         val spc = new SearchPresentationCompiler(pc)
         val maybeEntity = spc.declarationContaining(Location(hit.cu, hit.offset)).right.toOption.flatten
         //TODO: Report error
@@ -106,7 +107,7 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
     // Given a hit where the `entity` is used in a super-type position
     // find the declaration that contains it and return it.
     def onHit(hit: Confidence[Hit]): Unit = hit match {
-      case Certain(hit)   => getTypeEntity(hit) map Certain.apply foreach handler
+      case Certain(hit) => getTypeEntity(hit) map Certain.apply foreach handler
       case Uncertain(hit) => getTypeEntity(hit) map Uncertain.apply foreach handler
     }
 
@@ -126,9 +127,8 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
    *
    * Errors are passed to `errorHandler`.
    */
-  def occurrencesOfEntityAt(entity: Entity, scope: Scope, monitor: IProgressMonitor)
-                           (handler: Confidence[Hit] => Unit,
-                            errorHandler: SearchFailure => Unit = _ => ()): Unit = {
+  def occurrencesOfEntityAt(entity: Entity, scope: Scope, monitor: IProgressMonitor)(handler: Confidence[Hit] => Unit,
+    errorHandler: SearchFailure => Unit = _ => ()): Unit = {
 
     val names = entity.alternativeNames
     val (occurrences, failures) = index.findOccurrences(names, scope)
@@ -152,12 +152,46 @@ class Finder(index: Index, reporter: ErrorReporter) extends HasLogger {
       monitor.subTask(s"Checking ${occurrence.file.file.name}")
       val loc = Location(occurrence.file, occurrence.offset)
       entity.isReference(loc) match {
-        case Same         => handler(Certain(occurrence.toHit))
+        case Same => handler(Certain(occurrence.toHit))
         case PossiblySame => handler(Uncertain(occurrence.toHit))
-        case NotSame      => logger.debug(s"$occurrence wasn't the same.")
+        case NotSame => logger.debug(s"$occurrence wasn't the same.")
       }
       monitor.worked(1)
     }
   }
+  
+  def findCallers(e: Entity, scope: Scope, handler: (Hit,  Entity, String, Option[String], IScalaProject) => Unit, monitor: IProgressMonitor): Unit = {
+    def getLabel(pos:OffsetPosition, pc: IScalaPresentationCompiler):Option[(String,Option[String])] ={
+      pc.askTypeAt(pos).get match {
+           case Left(tree) => 
+             pc.asyncExec {
+               val topClass = pc.headerForSymbol(tree.symbol.enclosingTopLevelClass, tree.tpe)
+               (pc.declPrinter.defString(tree.symbol)(), topClass)
+             }.get match {
+               case Left(si)  => Some(si)
+               case _ => None
+             }
+           case _ => None
+         }
+    }
+    occurrencesOfEntityAt(e, scope, monitor)(
+      
+      c => c match {
+        case c@Certain(Hit(cu, _, _, _, Some(co))) =>
+          val loc = Location(cu, co)
+          entityAt(loc) match {
+            case Right(Some(entity)) =>
+              
+              cu.withSourceFile { (sf, pc) =>                
+                val pos = new OffsetPosition(sf, loc.offset)
+                getLabel(pos, pc).map { l => handler(c.value,  entity, l._1, l._2, cu.scalaProject) }
+              }
+               
+            case _ =>
+          }
 
+        case _ =>
+      },
+      f => {})
+  }
 }

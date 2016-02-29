@@ -16,8 +16,10 @@ object SearchPlugin extends HasLogger {
 
   // Only expose the Finder API.
   @volatile var finder: Finder = _
+  @volatile private var plugin: SearchPlugin = _
 
   final val PLUGIN_ID  = "org.scala.tools.eclipse.search"
+  def apply() = plugin
 }
 
 class SearchPlugin extends AbstractUIPlugin with HasLogger {
@@ -28,7 +30,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
 
   override def start(context: BundleContext) {
     super.start(context)
-
+    SearchPlugin.plugin = this
     val reporter = new DialogErrorReporter
     val index = new Index {
       override val base = getStateLocation().append(INDEX_DIR_NAME)
@@ -56,6 +58,7 @@ class SearchPlugin extends AbstractUIPlugin with HasLogger {
     indexManager.shutdown()
     indexManager = null
     SearchPlugin.finder = null
+    SearchPlugin.plugin = null
   }
 
 }
