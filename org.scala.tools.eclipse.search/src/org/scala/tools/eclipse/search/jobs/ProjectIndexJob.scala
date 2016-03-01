@@ -62,20 +62,17 @@ class ProjectIndexJob private (
   private def removed(f: IFile): Unit =
     changedResources.put(f, Removed)
 
-  @volatile var observer: Observing = _
-  @volatile var checkIndex = true
+  @volatile
+  private var observer: Observing = FileChangeObserver(project)(
+    onChanged = changed,
+    onAdded = added,
+    onRemoved = removed)
+
+  @volatile
+  private var checkIndex = true
 
   private def projectIsOpenAndExists: Boolean = {
     project.underlying.exists() && project.underlying.isOpen
-  }
-
-  private def setup(): Unit = {
-    observer = FileChangeObserver(project)(
-      onChanged = changed,
-      onAdded = added,
-      onRemoved = removed
-    )
-    checkIndex = true
   }
 
   private def ensureValidIndex(): Unit = {
@@ -178,7 +175,6 @@ object ProjectIndexJob extends HasLogger {
     logger.debug("Started ProjectIndexJob for " + sp.underlying.getName)
 
     val job = new ProjectIndexJob(indexer, sp, interval, onStopped)
-    job.setup()
     job.setSystem(true) // don't show in the UI
     job.setPriority(Job.LONG)
     job
