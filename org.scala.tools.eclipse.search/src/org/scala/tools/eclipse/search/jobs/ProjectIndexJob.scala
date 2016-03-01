@@ -47,32 +47,44 @@ class ProjectIndexJob private (
   // Potentially changed by several threads. This job and the FileChangeObserver
   private val changedResources: BlockingQueue[(IFile, FileEvent)] = new LinkedBlockingQueue[(IFile, FileEvent)]
 
-  private val changed = (f: IFile) => {
+  private def changed(f: IFile): Unit = {
     if (indexer.index.isIndexable(f)) {
       changedResources.put(f, Changed)
     }
   }
 
-  private val added = (f: IFile) => {
+  private def added(f: IFile): Unit = {
     if (indexer.index.isIndexable(f)) {
       changedResources.put(f, Added)
     }
   }
 
-  private val removed = (f: IFile) => changedResources.put(f, Removed)
+  private def removed(f: IFile): Unit =
+    changedResources.put(f, Removed)
 
-  @volatile var observer: Observing = _
+  @volatile
+  private var observer: Observing = FileChangeObserver(project)(
+    onChanged = changed,
+    onAdded = added,
+    onRemoved = removed)
+
+  @volatile
+  private var checkIndex = true
 
   private def projectIsOpenAndExists: Boolean = {
     project.underlying.exists() && project.underlying.isOpen
   }
 
-  private def setup {
-    observer = FileChangeObserver(project)(
-      onChanged = changed,
-      onAdded = added,
-      onRemoved = removed
-    )
+  private def ensureValidIndex(): Unit = {
+    val shouldIndex = for {
+      proj <- Option(project)
+    } yield {
+      !indexer.index.indexExists(proj.underlying) || !indexer.index.isIndexClean(proj.underlying)
+    }
+
+    if (shouldIndex.getOrElse(false)) {
+      indexer.indexProject(project).recover(handlers)
+    }
   }
 
   override def run(monitor: IProgressMonitor): IStatus = {
@@ -82,14 +94,9 @@ class ProjectIndexJob private (
       return Status.CANCEL_STATUS
     }
 
-    val shouldIndex = for {
-      proj <- Option(project)
-    } yield {
-      !indexer.index.indexExists(proj.underlying) || !indexer.index.isIndexClean(proj.underlying)
-    }
-
-    if (shouldIndex.getOrElse(false)) {
-      indexer.indexProject(project).recover(handlers)
+    if (checkIndex) {
+      ensureValidIndex()
+      checkIndex = false
     }
 
     while( !changedResources.isEmpty && !monitor.isCanceled() && projectIsOpenAndExists) {
@@ -168,7 +175,7 @@ object ProjectIndexJob extends HasLogger {
     logger.debug("Started ProjectIndexJob for " + sp.underlying.getName)
 
     val job = new ProjectIndexJob(indexer, sp, interval, onStopped)
-    job.setup
+    job.setSystem(true) // don't show in the UI
     job.setPriority(Job.LONG)
     job
   }

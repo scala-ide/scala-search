@@ -145,7 +145,7 @@ class ProjectIndexJobTest {
 
   @Test def ioExceptionWhenIndexing() {
     // When indexing a project fails with an IOException we expect it to
-    // try and index the project again later.
+    // try and index the project again later (when the project is re-open)
     val latch = new CountDownLatch(2)
 
     val config = mockIndexerConfigWithException(new IOException)
@@ -153,7 +153,15 @@ class ProjectIndexJobTest {
     when(config.indexProject(project)).thenReturn(
         Failure(new IOException))
 
-    val job = ProjectIndexJob(config, project, INTERVAL)
+    var job = ProjectIndexJob(config, project, INTERVAL)
+    job.addJobChangeListener(new JobChangeAdapter {
+      override def done(event: IJobChangeEvent): Unit = latch.countDown()
+    })
+
+    job.schedule()
+
+    // simulate a project re-open
+    job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
@@ -166,7 +174,7 @@ class ProjectIndexJobTest {
 
   @Test def corrupIndexExceptionWhenIndexing() {
     // When indexing a project fails with an CorruptIndexException we expect it to
-    // try and index the project again later.
+    // try and index the project again later (when the project is re-open)
     val latch = new CountDownLatch(2)
 
     val config = mockIndexerConfigWithException(new CorruptIndexException("", ""))
@@ -174,12 +182,20 @@ class ProjectIndexJobTest {
     when(config.indexProject(project)).thenReturn(
       Failure(new CorruptIndexException("", "")))
 
-    val job = ProjectIndexJob(config, project, INTERVAL)
+    var job = ProjectIndexJob(config, project, INTERVAL)
+    job.addJobChangeListener(new JobChangeAdapter {
+      override def done(event: IJobChangeEvent): Unit = latch.countDown()
+    })
+
+    // simulate a project re-open
+    job.schedule()
+    job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {
       override def done(event: IJobChangeEvent): Unit = latch.countDown()
     })
 
     job.schedule()
+
     latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     verify(config, atLeast(2)).indexProject(project)
