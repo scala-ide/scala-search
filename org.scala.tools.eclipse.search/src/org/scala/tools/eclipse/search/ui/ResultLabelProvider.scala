@@ -13,6 +13,7 @@ import org.eclipse.ui.PlatformUI
 import org.scala.tools.eclipse.search.searching.Certain
 import org.scala.tools.eclipse.search.searching.Hit
 import org.scala.tools.eclipse.search.searching.Uncertain
+import org.eclipse.jdt.internal.ui.JavaPluginImages
 
 /**
  * Responsible for telling Eclipse how to render the results in the
@@ -40,14 +41,21 @@ class ResultLabelProvider extends StyledCellLabelProvider with HasLogger {
         text.append(" (%s)".format(count), StyledString.COUNTER_STYLER)
         cell.setImage(ScalaImages.SCALA_FILE.createImage())
 
-      case LineNode(Certain(Hit(_,_,line, _))) =>
+      case LineNode(Certain(Hit(_, word, line, _))) =>
         val styled = new StyledString(line.trim)
         text.append(styled)
+        text.setStyle(line.trim.indexOf(word), word.length, StyledString.DECORATIONS_STYLER)
+        val image = JavaPluginImages.get(JavaPluginImages.IMG_OBJS_SEARCH_OCCURRENCE)
+        cell.setImage(image)
 
-      case LineNode(Uncertain(Hit(_,_,line,_))) =>
+
+      case LineNode(Uncertain(Hit(_, word, line, _))) =>
         val styled = new StyledString(line.trim)
         text.append(styled)
+        text.setStyle(line.trim.indexOf(word), word.length, StyledString.DECORATIONS_STYLER)
         text.append(" - Potential match", StyledString.QUALIFIER_STYLER)
+        val image = JavaPluginImages.get(JavaPluginImages.IMG_OBJS_SEARCH_OCCURRENCE)
+        cell.setImage(image)
 
       case x =>
         logger.debug(s"Expected content of either a tuple or Confidence[Hit], got: ${x}")
