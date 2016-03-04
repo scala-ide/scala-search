@@ -177,10 +177,10 @@ class ProjectIndexJobTest {
     // try and index the project again later (when the project is re-open)
     val latch = new CountDownLatch(2)
 
-    val config = mockIndexerConfigWithException(new CorruptIndexException("", ""))
+    val config = mockIndexerConfigWithException(new CorruptIndexException(""))
 
     when(config.indexProject(project)).thenReturn(
-      Failure(new CorruptIndexException("", "")))
+        Failure(new CorruptIndexException("")))
 
     var job = ProjectIndexJob(config, project, INTERVAL)
     job.addJobChangeListener(new JobChangeAdapter {

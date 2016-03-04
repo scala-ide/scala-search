@@ -209,13 +209,13 @@ class IndexTest {
   }
 
   @Test def corruptIndexExceptionByLuceneAreCaughtWhenAddingOccurrences() {
-    val index = mockedWriterConfig(new CorruptIndexException("", ""))
+    val index = mockedWriterConfig(new CorruptIndexException(""))
     val r = index.addOccurrences(Nil, project.scalaProject)
     failWithExceptionOfKind[CorruptIndexException](r)
   }
 
   @Test def corruptIndexExceptionByLuceneAreCaughtWhenRemovingOccurrences() {
-    val index = mockedWriterConfig(new CorruptIndexException("", ""))
+    val index = mockedWriterConfig(new CorruptIndexException(""))
     val r = index.removeOccurrencesFromFile(anonymousPath, project.scalaProject)
     failWithExceptionOfKind[CorruptIndexException](r)
   }
@@ -284,7 +284,7 @@ class IndexTest {
     val config = new Index {
       override val base = INDEX_DIR
       override def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
-        Failure(new CorruptIndexException("", ""))
+        Failure(new CorruptIndexException(""))
       }
     }
 
@@ -302,8 +302,9 @@ class IndexTest {
       override val base = INDEX_DIR
       override def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
         if (project.underlying.getName == projectA.scalaProject.underlying.getName) {
-          Failure(new CorruptIndexException("", ""))
-        } else super.withSearcher(project)(f)
+          Failure(new CorruptIndexException(""))
+        }
+        else super.withSearcher(project)(f)
       }
     }
     val indexer = new SourceIndexer(index)

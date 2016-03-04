@@ -113,8 +113,8 @@ trait Index extends HasLogger {
   protected case class InvalidDocument(doc: Document) extends ConversionError
 
   protected def config = {
-    val analyzer = new SimpleAnalyzer()
-    new IndexWriterConfig(analyzer)
+    val analyzer = new SimpleAnalyzer(Version.LUCENE_41)
+    new IndexWriterConfig(Version.LUCENE_41, analyzer)
   }
 
   //  TODO: https://scala-ide-portfolio.assembla.com/spaces/scala-ide/tickets/1001661-make-max-number-of-matches-configurable
@@ -244,7 +244,7 @@ trait Index extends HasLogger {
    * on IndexWriter `f` is using.
    */
   protected def doWithWriter(project: IScalaProject)(f: IndexWriter => Unit): Try[Unit] = {
-    val loc = location(project.underlying).toFile().toPath()
+    val loc = location(project.underlying).toFile()
     using(FSDirectory.open(loc), handlers = IOToTry[Unit]) { dir =>
       using(new IndexWriter(dir, config), handlers = IOToTry[Unit]) { writer =>
         Try(f(writer))
@@ -262,7 +262,7 @@ trait Index extends HasLogger {
    * on IndexSearcher `f` is using.
    */
   protected def withSearcher[A](project: IScalaProject)(f: IndexSearcher => A): Try[A] = {
-    val loc = location(project.underlying).toFile().toPath()
+    val loc = location(project.underlying).toFile()
     using(FSDirectory.open(loc), handlers = IOToTry[A]) { dir =>
       using(DirectoryReader.open(dir), handlers = IOToTry[A]) { reader =>
         val searcher = new IndexSearcher(reader)

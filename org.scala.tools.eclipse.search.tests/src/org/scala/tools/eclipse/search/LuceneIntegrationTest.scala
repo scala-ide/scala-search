@@ -18,9 +18,9 @@ class LuceneIntegrationTest {
   import LuceneIntegrationTest._
 
   @Test def integration() {
-    val dir = FSDirectory.open(INDEX_DIR.toPath())
-    val analyzer = new SimpleAnalyzer()
-    val config = new IndexWriterConfig(analyzer);
+    val dir = FSDirectory.open(INDEX_DIR)
+    val analyzer = new SimpleAnalyzer(Version.LUCENE_41)
+    val config = new IndexWriterConfig(Version.LUCENE_41, analyzer);
     val writer = new IndexWriter(dir, config)
     val doc = new Document
     doc.add(new Field("test", "it works!", Field.Store.YES, Field.Index.NOT_ANALYZED))
