@@ -16,7 +16,7 @@ Install it
 
 The latest stable versions can be installed through the update site of the [stable version of the IDE](http://scala-ide.org/download/current.html)
 
-Nightlies can be installed through [this update site](http://scala-ide.dreamhosters.com/nightly-update-scala-search-scalaide-master-211/site/).
+Nightlies can be installed through [this update site](http://download.scala-ide.org/nightly-update-scala-search-scalaide-master-211/site/).
 
 Building
 --------
