@@ -16,6 +16,7 @@ import org.scalaide.core.IScalaPlugin
 import org.junit.Ignore
 
 class IndexJobManagerTest {
+  final val TimeOut = 60000 //ms
 
   import SDTTestUtils._
   import IndexJobManagerTest._
@@ -58,28 +59,28 @@ class IndexJobManagerTest {
   @Test
   def canProgramaticallyStartAnIndexingJob() {
     // Precondition
-    assertTrue(project.underlying.isOpen())
+    assertTrue("Project is open", project.underlying.isOpen())
 
     // Event
     indexManager.startIndexing(project.underlying)
 
     // Result
-    assertTrue(indexManager.isIndexing(project.underlying))
+    assertTrue("Project is indexing", indexManager.isIndexing(project.underlying))
   }
 
   @Test
   def canProgramaticallyStopAnIndexingJob() {
     // Precondition
-    assertTrue(project.underlying.isOpen())
-    assertFalse(indexManager.isIndexing(project.underlying))
+    assertTrue("Project is open", project.underlying.isOpen())
+    assertFalse("Project is not indexing", indexManager.isIndexing(project.underlying))
     indexManager.startIndexing(project.underlying)
-    assertTrue(indexManager.isIndexing(project.underlying))
+    assertTrue("Project is indexing", indexManager.isIndexing(project.underlying))
 
     // Event
     indexManager.stopIndexing(project.underlying)
 
     // Result
-    assertFalse(indexManager.isIndexing(project.underlying))
+    assertFalse("Project is not indexing", indexManager.isIndexing(project.underlying))
   }
 
   @Test
@@ -92,8 +93,8 @@ class IndexJobManagerTest {
     })
 
     // preconditions
-    assertTrue(project.underlying.isOpen())
-    assertFalse(indexManager.isIndexing(project.underlying))
+    assertTrue("Project is open", project.underlying.isOpen())
+    assertFalse("Project is not indexing", indexManager.isIndexing(project.underlying))
 
     // event
     project.underlying.close(monitor)
@@ -101,7 +102,7 @@ class IndexJobManagerTest {
     latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // reaction
-    assertTrue(indexManager.isIndexing(project.underlying))
+    assertTrue("Project is indexing", indexManager.isIndexing(project.underlying))
     observer.stop
   }
 
@@ -121,7 +122,7 @@ class IndexJobManagerTest {
     latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // reaction
-    assertTrue(indexManager.isIndexing(p.underlying))
+    assertTrue("Project is indexing", indexManager.isIndexing(p.underlying))
 
     observer.stop
   }
@@ -136,17 +137,17 @@ class IndexJobManagerTest {
     })
 
     // precondition
-    assertTrue(project.underlying.isOpen())
+    assertTrue("Project is open", project.underlying.isOpen())
     indexManager.startIndexing(project.underlying)
-    assertTrue(indexManager.isIndexing(project.underlying))
+    assertTrue("Project is indexing", indexManager.isIndexing(project.underlying))
 
     // event
     project.underlying.close(monitor)
     latch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // reaction
-    assertFalse(project.underlying.isOpen())
-    assertFalse(indexManager.isIndexing(project.underlying))
+    assertFalse("Project is not open", project.underlying.isOpen())
+    assertFalse("Project is not indexing", indexManager.isIndexing(project.underlying))
     observer.stop
   }
 
@@ -172,14 +173,14 @@ class IndexJobManagerTest {
     createdLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // preconditions
-    assertTrue(indexManager.isIndexing(p.underlying))
+    assertTrue("Project is indexing", indexManager.isIndexing(p.underlying))
 
     // event
     p.underlying.delete(true, monitor)
     deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // expected
-    assertFalse(indexManager.isIndexing(p.underlying))
+    assertFalse("Project is not indexing", indexManager.isIndexing(p.underlying))
     observer.stop
   }
 
@@ -219,19 +220,19 @@ class IndexJobManagerTest {
     // has been indexed. Instead until the index has been created on disc, as
     // we know that will happen once it has indexed the file. We wait no longer
     // than 10 seconds.
-    SDTTestUtils.waitUntil(10000)(indexer.index.location(p.underlying).toFile.exists)
+    SDTTestUtils.waitUntil(TimeOut)(indexer.index.location(p.underlying).toFile.exists)
 
-    assertTrue(indexer.index.location(p.underlying).toFile.exists)
+    assertTrue("Index file exists", indexer.index.location(p.underlying).toFile.exists)
 
     // event
     p.underlying.delete(true, monitor)
     deletedLatch.await(EVENT_DELAY, java.util.concurrent.TimeUnit.SECONDS)
 
     // wait until the index has been removed
-    SDTTestUtils.waitUntil(10000)(!indexer.index.location(p.underlying).toFile.exists)
+    SDTTestUtils.waitUntil(TimeOut)(!indexer.index.location(p.underlying).toFile.exists)
 
     // expected
-    assertFalse(indexer.index.location(p.underlying).toFile.exists)
+    assertFalse("Index file does not exist", indexer.index.location(p.underlying).toFile.exists)
     observer.stop
   }
 }
