@@ -9,7 +9,7 @@
   <parent>
     <groupId>org.scala-ide</groupId>
     <artifactId>plugin-profiles</artifactId>
-    <version>1.0.13</version>
+    <version>1.0.14</version>
   </parent>
 
   <groupId>org.scala.tools.eclipse</groupId>
@@ -17,6 +17,10 @@
   <version>0.6.0-SNAPSHOT</version>
   <name>Scala Search</name>
   <packaging>pom</packaging>
+
+  <properties>
+    <weaving.hook.plugin.version>1.2.0.v20160929-1449</weaving.hook.plugin.version>
+  </properties>
 
   <modules>
     <module>org.scala.tools.eclipse.search</module>

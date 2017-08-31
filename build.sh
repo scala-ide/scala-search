@@ -1,3 +1,3 @@
 #!/bin/bash
 
-mvn -Peclipse-luna -Pscala-ide-nightly -Pscala-2.11.x clean install
+mvn -Peclipse-neon -Pscala-ide-dev -Pscala-2.12.x -Dscala.version=2.12.2 clean install
