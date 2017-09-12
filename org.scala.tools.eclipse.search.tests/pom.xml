@@ -14,16 +14,6 @@
       <artifactId>mockito-all</artifactId>
       <version>1.9.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-core</artifactId>
-      <version>5.3.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-analyzers-common</artifactId>
-      <version>5.3.1</version>
-    </dependency>
   </dependencies>
 
   <build>
@@ -53,18 +43,6 @@
                 <artifactItem>
                   <groupId>org.mockito</groupId>
                   <artifactId>mockito-all</artifactId>
-                  <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.apache.lucene</groupId>
-                  <artifactId>lucene-core</artifactId>
-                  <version>5.3.1</version>
-                  <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.apache.lucene</groupId>
-                  <artifactId>lucene-analyzers-common</artifactId>
-                  <version>5.3.1</version>
                   <outputDirectory>${project.build.directory}/lib</outputDirectory>
                 </artifactItem>
               </artifactItems>

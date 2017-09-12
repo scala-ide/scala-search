@@ -41,6 +41,7 @@ import scala.collection.mutable.ArraySeq
 import org.scala.tools.eclipse.search.searching.Scope
 import org.apache.lucene.store.Directory
 import org.apache.lucene.index.CheckIndex
+import org.apache.lucene.document.StringField
 
 trait SearchFailure
 case class BrokenIndex(project: IScalaProject) extends SearchFailure
@@ -130,11 +131,11 @@ trait Index extends HasLogger {
    */
   def findOccurrencesInSuperPosition(word: String, scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
 
-    val query = new BooleanQuery()
+    val query = new BooleanQuery.Builder()
     query.add(new TermQuery(Terms.isInSuperPosition), BooleanClause.Occur.MUST)
     query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
 
-    val resuts = queryScope(query, scope)
+    val resuts = queryScope(query.build(), scope)
 
     groupSearchResults(resuts.seq)
   }
@@ -143,11 +144,11 @@ trait Index extends HasLogger {
     * Search the projects for all occurrence of the `word` that are found in declarations.
     */
    def findDeclarations(word: String, scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
-     val query = new BooleanQuery()
+     val query = new BooleanQuery.Builder()
      query.add(new TermQuery(Terms.isDeclaration), BooleanClause.Occur.MUST)
      query.add(new TermQuery(Terms.exactWord(word)), BooleanClause.Occur.MUST)
 
-     val resuts = queryScope(query, scope)
+     val resuts = queryScope(query.build(), scope)
 
      groupSearchResults(resuts.seq)
    }
@@ -161,16 +162,16 @@ trait Index extends HasLogger {
    */
   def findOccurrences(words: Seq[String], scope: Scope): (Seq[Occurrence], Seq[SearchFailure]) = {
 
-    val query = new BooleanQuery()
-    val innerQuery = new BooleanQuery()
+    val query = new BooleanQuery.Builder()
+    val innerQuery = new BooleanQuery.Builder()
     for { w <- words } {
       innerQuery.add(
           new TermQuery(Terms.exactWord(w)),
           BooleanClause.Occur.SHOULD)
     }
-    query.add(innerQuery, BooleanClause.Occur.MUST)
+    query.add(innerQuery.build(), BooleanClause.Occur.MUST)
 
-    val resuts = queryScope(query, scope)
+    val resuts = queryScope(query.build(), scope)
 
     groupSearchResults(resuts.seq)
   }
@@ -227,10 +228,10 @@ trait Index extends HasLogger {
    */
   def removeOccurrencesFromFile(path: IPath, project: IScalaProject): Try[Unit] = {
     doWithWriter(project) { writer =>
-      val query = new BooleanQuery()
+      val query = new BooleanQuery.Builder()
       query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
       query.add(new TermQuery(Terms.projectTerm(project.underlying)), BooleanClause.Occur.MUST)
-      writer.deleteDocuments(query)
+      writer.deleteDocuments(query.build())
     }
   }
 
@@ -313,8 +314,7 @@ trait Index extends HasLogger {
     val doc = new Document
 
     def persist(key: String, value: String) =
-      doc.add(new Field(key, value,
-          Field.Store.YES, Field.Index.NOT_ANALYZED))
+      doc.add(new StringField(key, value, Field.Store.YES))
 
     persist(WORD, o.word)
     persist(PATH, o.file.workspaceFile.getProjectRelativePath().toPortableString())
