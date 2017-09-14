@@ -12,6 +12,7 @@ import org.apache.lucene.util.Version
 import org.junit.Assert._
 import org.junit.Test
 import org.scalaide.core.testsetup.TestProjectSetup
+import org.apache.lucene.document.StringField
 
 class LuceneIntegrationTest {
 
@@ -23,7 +24,7 @@ class LuceneIntegrationTest {
     val config = new IndexWriterConfig(analyzer);
     val writer = new IndexWriter(dir, config)
     val doc = new Document
-    doc.add(new Field("test", "it works!", Field.Store.YES, Field.Index.NOT_ANALYZED))
+    doc.add(new StringField("test", "it works!", Field.Store.YES))
     writer.addDocument(doc)
     writer.close()
     val reader = DirectoryReader.open(dir)

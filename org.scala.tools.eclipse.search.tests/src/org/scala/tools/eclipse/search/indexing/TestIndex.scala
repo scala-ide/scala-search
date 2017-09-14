@@ -26,12 +26,12 @@ trait TestIndex extends Index {
   def occurrencesInFile(path: IPath, project: IScalaProject): Try[Seq[Occurrence]] = {
     withSearcher(project) { searcher =>
 
-      val query = new BooleanQuery()
+      val query = new BooleanQuery.Builder()
       query.add(new TermQuery(Terms.pathTerm(path)), BooleanClause.Occur.MUST)
       query.add(new TermQuery(Terms.projectTerm(project.underlying)), BooleanClause.Occur.MUST)
 
       for {
-        hit <- searcher.search(query, MAX_POTENTIAL_MATCHES).scoreDocs
+        hit <- searcher.search(query.build(), MAX_POTENTIAL_MATCHES).scoreDocs
         occurrence <- fromDocument(searcher.doc(hit.doc)).right.toOption
       } yield occurrence
     }
